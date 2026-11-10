@@ -1,6 +1,6 @@
 {
   "name": "dsh-workbuddy-accounts",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "type": "module",
   "description": "AI 工具箱：WorkBuddy、Trae、Qoder 的账号、签到、任务与积分管理。",

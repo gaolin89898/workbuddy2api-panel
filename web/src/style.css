@@ -90,8 +90,7 @@ main { padding: 32px 40px 48px; max-width: 1800px; margin: auto; }
 .platform-switcher { display: flex; flex-wrap: wrap; gap: 7px; }
 .platform-switcher > button { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--surface); color: var(--secondary); border: 1px solid var(--line); border-radius: 9px; font-size: 12px; }
 .platform-switcher > button.active { color: var(--accent); background: var(--accent-soft); border-color: transparent; }
-.platform-mark { background: #2b45c9; color: white; display: flex; align-items: center; justify-content: center; width: 21px; height: 21px; border-radius: 6px; font: 600 12px Inter, sans-serif; }
-.trae-mark { background: #147567; }
+.platform-mark { display: block; width: 21px; height: 21px; border-radius: 6px; flex-shrink: 0; object-fit: contain; }
 .platform-count { color: var(--muted); font: 10px Inter, sans-serif; }
 .add-platforms { display: flex; gap: 8px; margin: 0 0 22px; }
 .add-platforms button { flex: 1; border: 1px solid var(--line); background: var(--surface); color: var(--secondary); padding: 8px 12px; border-radius: 8px; font-size: 12px; }

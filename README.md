@@ -202,14 +202,14 @@ go test ./...
 
 ### DSH 插件
 
-当前插件版本为 **0.1.10**。在 `dsh-plugin` 目录构建、检查并打包：
+当前插件版本为 **0.1.11**。在 `dsh-plugin` 目录构建、检查并打包：
 
 ```powershell
 npm --prefix ../web ci
 npm run build
 npm test
 npm pack
-dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.10.tgz"
+dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.11.tgz"
 ```
 
 独立 DSH Web 使用 `--profile web`。点击侧栏「AI 工具箱」展开五项菜单，嵌入页面使用整块内容区，主题与 Arco 滚动条跟随 DSH；管理密钥入口位于「签到设置」。Go 后端需在目标电脑单独运行。使用远程会话插件 1.2.2 或更新版本时，页面、账号统计、设置与客户端操作跟随当前电脑；目标电脑也需安装 AI 工具箱 0.1.9 或更新版本。各电脑密钥和备注独立保存，连接失败会报错，不回退显示本机数据。已在 DSH `0.2.2-rc.1` 上验证宽屏与窄屏抽屉布局下的菜单、主题和接口连接。安装细节见 [dsh-plugin/README.md](dsh-plugin/README.md)。

@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => ({
     proxy: { '/panel/api': 'http://127.0.0.1:7863' },
   },
   build: {
+    assetsInlineLimit: 16384,
     outDir: fileURLToPath(new URL(mode === 'standalone' ? './dist' : '../internal/panel/accounts_dist', import.meta.url)),
     emptyOutDir: true,
     rollupOptions: {

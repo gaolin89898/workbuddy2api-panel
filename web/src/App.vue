@@ -1,5 +1,5 @@
 <script setup>
-import { onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
 import { Alert as AAlert, Button as AButton, Input as AInput, InputPassword as AInputPassword, Modal as AModal, Scrollbar as AScrollbar, Tooltip as ATooltip } from '@arco-design/web-vue';
 import { IconUserGroup, IconCalendar, IconFile, IconSafe, IconMoon, IconSun, IconPlus, IconCheckSquare, IconGift } from '@arco-design/web-vue/es/icon';
 import { KEY_STORAGE, useAccounts } from './useAccounts';
@@ -11,6 +11,9 @@ import ScheduleView from './components/ScheduleView.vue';
 import LogsView from './components/LogsView.vue';
 import BenefitsView from './components/BenefitsView.vue';
 import AccountDialog from './components/AccountDialog.vue';
+import workbuddyIcon from './assets/platform-workbuddy.png';
+import traeIcon from './assets/platform-trae.png';
+import qoderIcon from './assets/platform-qoder.png';
 
 const localStorage = hostRuntime.storage;
 const model = reactive(useAccounts());
@@ -35,6 +38,12 @@ async function switchClient() {
   try { await model.switchDesktop(switchAccount.value); switchAccount.value = null; } catch { /* Preserve the confirmation for retry. */ }
 }
 const tabs = [{ id: 'accounts', name: '账号', icon: IconUserGroup }, { id: 'tasks', name: '任务', icon: IconCheckSquare }, { id: 'rewards', name: '奖励', icon: IconGift }, { id: 'settings', name: '签到', icon: IconCalendar }, { id: 'logs', name: '日志', icon: IconFile }];
+const platforms = [
+  { id: 'workbuddy', name: 'WorkBuddy', icon: workbuddyIcon },
+  { id: 'trae', name: 'Trae', icon: traeIcon },
+  { id: 'qoder', name: 'Qoder', icon: qoderIcon },
+];
+const platformCounts = computed(() => ({ workbuddy: model.workbuddyAccounts.length, trae: model.traeAccounts.length, qoder: model.qoderAccounts.length }));
 function navigate(value) { view.value = value; location.hash = value; }
 watch(view, () => workspaceScrollbar.value?.scrollTo({ top: 0 }), { flush: 'post' });
 function hashChanged() { view.value = readView(); }
@@ -65,7 +74,7 @@ async function remove() {
     <a-scrollbar ref="workspaceScrollbar" outer-class="workspace" class="workspace-scroll-content" tabindex="0" aria-label="页面内容">
       <header class="mobile-header"><a class="brand" href="#accounts" @click.prevent="navigate('accounts')"><span class="brand-mark">A</span><span><strong>AI 工具箱</strong><small>WorkBuddy · Trae · Qoder</small></span></a><div><a-tooltip v-if="!hostTheme" :content="dark ? '浅色主题' : '深色主题'"><a-button :aria-label="dark ? '切换浅色主题' : '切换深色主题'" @click="dark = !dark"><template #icon><icon-sun v-if="dark" /><icon-moon v-else /></template></a-button></a-tooltip><a-tooltip content="添加账号"><a-button type="primary" aria-label="添加账号" @click="model.openAdd()"><template #icon><icon-plus /></template></a-button></a-tooltip></div></header>
       <main>
-        <div v-if="view !== 'tasks'" class="platform-bar"><div class="platform-switcher" role="group" aria-label="账号平台"><button v-for="item in [{ id: 'workbuddy', name: 'WorkBuddy', mark: 'W', count: model.workbuddyAccounts.length }, { id: 'trae', name: 'Trae', mark: 'T', count: model.traeAccounts.length }, { id: 'qoder', name: 'Qoder', mark: 'Q', count: model.qoderAccounts.length }]" :key="item.id" :class="{ active: model.provider === item.id }" :aria-pressed="model.provider === item.id" @click="model.selectProvider(item.id)"><span :class="['platform-mark', { 'trae-mark': item.id === 'trae', 'qoder-mark': item.id === 'qoder' }]">{{ item.mark }}</span>{{ item.name }}<span class="platform-count">{{ item.count }}</span></button></div><span>账号管理 · 每日签到</span></div>
+        <div v-if="view !== 'tasks'" class="platform-bar"><div class="platform-switcher" role="group" aria-label="账号平台"><button v-for="item in platforms" :key="item.id" :class="{ active: model.provider === item.id }" :aria-pressed="model.provider === item.id" @click="model.selectProvider(item.id)"><img class="platform-mark" :src="item.icon" :alt="`${item.name} 图标`" />{{ item.name }}<span class="platform-count">{{ platformCounts[item.id] }}</span></button></div><span>账号管理 · 每日签到</span></div>
         <a-alert v-if="model.error && !model.needsKey" type="warning" class="connection-alert">{{ model.error }}<template #action><a-button size="mini" @click="model.connect().catch(() => {})">重新连接</a-button></template></a-alert>
         <AccountView v-if="view === 'accounts'" :key="model.provider" :model="model" @remark="editRemark" @remove="removeAccount = $event" @switch="requestSwitch" @navigate="navigate" />
         <ScheduleView v-else-if="view === 'settings'" :model="model" :embedded="embedded" @navigate="navigate" @key="openKey" />

@@ -17,6 +17,26 @@ export function createHostRuntime(win) {
     }
   }
 
+  function prepareBrowserLogin() {
+    assertTarget();
+    // Reserve a tab during the click gesture. Desktop shells deny blank tabs
+    // and handle the final HTTPS URL with the system browser instead.
+    let popup = host.open('about:blank', '_blank');
+    if (popup) popup.opener = null;
+    return {
+      open(value) {
+        assertTarget();
+        const url = new URL(value);
+        if (url.protocol !== 'https:') throw new Error('授权地址无效');
+        if (popup && !popup.closed) {
+          popup.location.replace(url.href);
+          popup = null;
+        } else host.open(url.href, '_blank', 'noopener,noreferrer');
+      },
+      close() { popup?.close(); popup = null; },
+    };
+  }
+
   async function fetchAPI(input, options = {}) {
     assertTarget();
     if (!remote) return fetchHost(String(input), options);
@@ -45,7 +65,7 @@ export function createHostRuntime(win) {
     return response;
   }
 
-  return { embedded, remote, peerId, storage, apiBase, fetchAPI };
+  return { embedded, remote, peerId, storage, apiBase, fetchAPI, prepareBrowserLogin };
 }
 
 export const hostRuntime = typeof window === 'undefined' ? null : createHostRuntime(window);

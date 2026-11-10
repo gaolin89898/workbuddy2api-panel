@@ -121,6 +121,7 @@ export function useAccounts() {
   const remarks = ref(storedRemarks);
   const abort = new AbortController();
   let overviewFlight, pollTimer, refreshTimer, clockTimer, loginAttempt = 0;
+  let loginBrowser;
   let traePollTimer, traeLoginAttempt = 0;
 
   const accountName = account => remarks.value[account.uid] || account.nickname || account.uid;
@@ -249,6 +250,8 @@ export function useAccounts() {
   function stopLogin() {
     ++loginAttempt;
     clearTimeout(pollTimer);
+    loginBrowser?.close();
+    loginBrowser = null;
     Object.assign(login, { state: '', url: '', status: '', error: '', waiting: false });
     stopTraeLogin();
     stopQoderLogin();
@@ -406,17 +409,22 @@ export function useAccounts() {
     });
   }
   async function startLogin() {
+    if (busy.has('login')) return;
     stopLogin();
     const attempt = loginAttempt;
     await action('login', async () => {
+      let browser;
       try {
+        browser = loginBrowser = hostRuntime.prepareBrowserLogin();
         const data = await api('login/start', { method: 'POST', body: JSON.stringify({ realm: realm.value }) });
-        if (attempt !== loginAttempt || !addVisible.value) return;
+        if (attempt !== loginAttempt || !addVisible.value) { browser.close(); return; }
         const url = new URL(data.url);
         if (url.protocol !== 'https:') throw new Error('授权地址无效');
         Object.assign(login, { state: data.state, url: url.href, status: '等待浏览器授权', waiting: true });
         pollTimer = setTimeout(() => pollLogin(attempt), 3000);
-      } catch (cause) { if (attempt === loginAttempt) login.error = cause.message; throw cause; }
+        browser.open(url.href);
+      } catch (cause) { browser?.close(); if (attempt === loginAttempt) login.error = cause.message; throw cause; }
+      finally { if (loginBrowser === browser) loginBrowser = null; }
     });
   }
   async function pollLogin(attempt) {

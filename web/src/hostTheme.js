@@ -42,6 +42,13 @@ export function followHostTheme(onChange) {
     }
     const width = style.getPropertyValue('--dsh-scrollbar-width').trim();
     if (width && CSS.supports('width', width)) root.style.setProperty('--host-scrollbar-width', width);
+    // 主按钮底色与文字色同色时（个别 DSH 皮肤变量缺失导致），按宿主深浅
+    // 强制写入对比色，避免白底白字按钮。
+    const fill = style.getPropertyValue(tokens.button).trim();
+    const fg = style.getPropertyValue(tokens['button-text']).trim();
+    if (fill && fg && CSS.supports('color', fill) && CSS.supports('color', fg) && fill === fg) {
+      root.style.setProperty('--host-button-text', host.body.hasAttribute('data-ds-dark-theme') ? '#10131a' : '#ffffff');
+    }
     root.dataset.hostTheme = document.body.dataset.hostTheme = 'dsh';
     onChange(host.body.hasAttribute('data-ds-dark-theme'));
   };

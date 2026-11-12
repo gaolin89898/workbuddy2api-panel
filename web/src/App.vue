@@ -82,7 +82,7 @@ async function remove() {
 
 <template>
   <div :class="['app-shell', { 'dsh-embedded': embedded }]">
-    <Sidebar v-if="!embedded" :model="model" :view="view" :dark="dark" :host-theme="hostTheme" @navigate="navigate" @key="openKey" @theme="dark = !dark" />
+    <Sidebar :model="model" :view="view" :dark="dark" :host-theme="hostTheme" @navigate="navigate" @key="openKey" @theme="dark = !dark" />
     <a-scrollbar ref="workspaceScrollbar" outer-class="workspace" class="workspace-scroll-content" tabindex="0" aria-label="页面内容">
       <header class="mobile-header"><a class="brand" href="#accounts" @click.prevent="navigate('accounts')"><span class="brand-mark">A</span><span><strong>AI 工具箱</strong><small>WorkBuddy · Trae · Qoder · MiniMax · Loomy</small></span></a><div><a-tooltip v-if="!hostTheme" :content="dark ? '浅色主题' : '深色主题'"><a-button :aria-label="dark ? '切换浅色主题' : '切换深色主题'" @click="dark = !dark"><template #icon><icon-sun v-if="dark" /><icon-moon v-else /></template></a-button></a-tooltip><a-tooltip content="添加账号"><a-button type="primary" aria-label="添加账号" @click="model.openAdd()"><template #icon><icon-plus /></template></a-button></a-tooltip></div></header>
       <main>

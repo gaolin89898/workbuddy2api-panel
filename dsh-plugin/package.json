@@ -1,6 +1,6 @@
 {
   "name": "dsh-workbuddy-accounts",
-  "version": "0.1.33",
+  "version": "0.1.39",
   "private": true,
   "type": "module",
   "description": "AI 工具箱：WorkBuddy、Trae、Qoder、MiniMax、Loomy 的账号、签到、任务与积分管理。",

@@ -1,9 +1,7 @@
 window.__ModuleLoader__.load({
   id: 'dsh-workbuddy-accounts',
   factory: require => {
-    const { createElement: h, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } = require('react');
-    const { createPortal } = require('react-dom');
-    const { Menu, MenuItemButton } = require('@deepseek-ai/dsh-client-ui-primitives');
+    const { createElement: h, useEffect, useRef, useState, useSyncExternalStore } = require('react');
     const panel = 'workbuddy-accounts';
     const pages = [
       { id: 'accounts', label: '账号', path: 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', circle: [9, 7, 4] },
@@ -12,14 +10,16 @@ window.__ModuleLoader__.load({
       { id: 'settings', label: '签到设置', path: 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2' },
       { id: 'logs', label: '运行日志', path: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8' },
     ];
-    function PageIcon({ page, size = 16 }) {
-      return h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true },
-        page.circle && h('circle', { cx: page.circle[0], cy: page.circle[1], r: page.circle[2] }), h('path', { d: page.path }));
-    }
     function AccountIcon({ size = 18 } = {}) {
       return h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, 'aria-hidden': true },
         h('circle', { cx: 12, cy: 8, r: 4 }),
         h('path', { d: 'M4 21v-2a8 8 0 0 1 16 0v2' }));
+    }
+    // 页面内自带第二列菜单。侧栏行用极简组件（0.1.38 的 label-only 注册不渲染行）；
+    // 曾疑似引发 whale bubbleTtlSweep 循环，实为 dsh-better-sidebar 0.30.1 的布局
+    // 风暴（升级 0.32.1 后消失），与行组件无关。
+    function AccountRow({ size = 16 }) {
+      return h('span', { style: { display: 'inline-flex' } }, h(AccountIcon, { size }));
     }
     return {
       name: 'dsh-workbuddy-accounts', inject: ['slots', 'layout'],
@@ -84,54 +84,11 @@ window.__ModuleLoader__.load({
             style: { display: 'block', width: '100%', height: '100%', flex: 1, border: 0, minWidth: 0, minHeight: 0 },
           });
         }
-        function AccountMenu({ size = 16 }) {
-          const selected = useSyncExternalStore(subscribe, getSnapshot);
-          const [open, setOpen] = useState(false), [trigger, setTrigger] = useState(null);
-          const icon = useRef(null);
-          // Match the remote-session menu: use the entire native sidebar row as
-          // the trigger while keeping DSH's menu focus, positioning and palette.
-          useLayoutEffect(() => {
-            const button = icon.current?.closest('button');
-            if (!button) return;
-            setTrigger(button);
-            const previous = ['aria-haspopup', 'aria-expanded'].map(key => [key, button.getAttribute(key)]);
-            const toggle = event => {
-              event.preventDefault(); event.stopImmediatePropagation(); setOpen(value => !value);
-            };
-            const keydown = event => {
-              if (!['Enter', ' ', 'ArrowDown'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return;
-              event.preventDefault(); event.stopImmediatePropagation();
-              if (!event.repeat) setOpen(value => event.key === 'ArrowDown' || !value);
-            };
-            button.addEventListener('click', toggle, true);
-            button.addEventListener('keydown', keydown, true);
-            button.setAttribute('aria-haspopup', 'menu');
-            return () => {
-              button.removeEventListener('click', toggle, true);
-              button.removeEventListener('keydown', keydown, true);
-              for (const [key, value] of previous) {
-                if (value === null) button.removeAttribute(key); else button.setAttribute(key, value);
-              }
-            };
-          }, []);
-          useLayoutEffect(() => { trigger?.setAttribute('aria-expanded', String(open)); }, [trigger, open]);
-          return h('span', { style: { display: 'inline-flex' }, onClick: event => event.stopPropagation() },
-            h('style', null, '.dsh-accounts-menu{width:196px;max-width:calc(100vw - 24px)}.dsh-accounts-chevron{margin-left:auto;flex:none;color:var(--dsw-alias-label-secondary)}'),
-            trigger && size === 16 && createPortal(h('svg', { className: 'dsh-accounts-chevron', width: 14, height: 14, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, 'aria-hidden': true }, h('path', { d: open ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6' })), trigger),
-            h(Menu, {
-              open, onClose: () => setOpen(false), portal: true, autoFocus: true, selectedId: selected,
-              listClassName: 'dsh-accounts-menu', getAnchorRect: () => icon.current?.closest('button')?.getBoundingClientRect() || null,
-              anchor: h('span', { ref: icon, style: { display: 'inline-flex' } }, h(AccountIcon, { size })),
-            }, pages.map(page => h(MenuItemButton, {
-              key: page.id, id: page.id, current: selected === page.id, icon: h(PageIcon, { page }),
-              onSelect: () => { setPage(page.id); ctx.layout.selectPanel(panel); setOpen(false); },
-            }, page.label))));
-        }
         ctx.slots.inject('sidebar.panellist', () => {
           const offPanel = ctx.slots.register({ name: 'main', key: panel }, AccountConsole);
           const offRow = ctx.slots.register({
             name: 'sidebar.panellist', id: panel, order: 60, label: () => 'AI 工具箱',
-          }, AccountMenu);
+          }, AccountRow);
           return () => {
             if (ctx.layout.panelInfo.getSnapshot().activePanelId === panel) ctx.layout.selectPanel(null);
             if (typeof offRow === 'function') offRow();

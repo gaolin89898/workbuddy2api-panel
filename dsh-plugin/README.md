@@ -1,6 +1,6 @@
 ﻿# DSH AI 工具箱
 
-独立 Vue 页面与 DSH 插件入口，当前版本 **0.1.33**。Go 后端仍由本机单独运行；插件不启动、停止或打包 Go 程序，不读取 `config.json`、`auths/` 或 `data/`。
+独立 Vue 页面与 DSH 插件入口，当前版本 **0.1.39**。Go 后端仍由本机单独运行；插件不启动、停止或打包 Go 程序，不读取 `config.json`、`auths/` 或 `data/`。
 
 ## 构建与打包
 
@@ -13,7 +13,7 @@ npm test
 npm pack
 ```
 
-构建生成 `web/dist/` 和插件的 `public/`，打包生成 `dsh-workbuddy-accounts-0.1.33.tgz`。包内只包含页面、DSH 入口和本机接口转发代码，不包含账号数据、密钥或 Go 二进制。
+构建生成 `web/dist/` 和插件的 `public/`，打包生成 `dsh-workbuddy-accounts-0.1.39.tgz`。包内只包含页面、DSH 入口和本机接口转发代码，不包含账号数据、密钥或 Go 二进制。
 
 原有 `web` 目录的 `npm run build` 继续生成 Go 内嵌页面；独立版本使用 `npm run build:standalone`，不依赖 Go 编译。两个版本共用页面源码。更新插件时先用 `npm version patch --no-git-tag-version` 递增版本，并同步文档中的包名，再构建、检查和打包，避免缓存复用同版本旧资源。
 
@@ -29,7 +29,7 @@ npm pack
 2. 在 DSH 插件管理器安装本地 `.tgz`，或使用 CLI。桌面版使用 `desktop` profile：
 
    ```powershell
-   dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.33.tgz"
+   dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.39.tgz"
    ```
 
    独立 Web 版将 `--profile desktop` 改为 `--profile web`。更新已安装插件时使用同一命令，包名以 `npm pack` 输出为准。
@@ -54,7 +54,7 @@ npm pack
 
 嵌入 DSH 时，页面和 Arco 滚动条自动跟随 DSH 的深浅色与皮肤配色；独立打开时保留页面自己的主题设置。签到设置的三个开关开启为蓝底“开”、圆点在右，关闭为灰底“关”、圆点在左，两种主题均使用白色圆点和文字；点击「保存设置」后才生效，「取消」恢复已保存选项。
 
-点击 DSH 侧栏的「AI 工具箱」展开账号、任务中心、活动奖励、签到设置和运行日志菜单。嵌入页面不再显示第二列侧栏、签到概览和最近活动；管理密钥入口在「签到设置」页。积分明细页面及入口已移除，账号页仍保留余额和刷新积分。
+点击 DSH 侧栏的「AI 工具箱」直接打开面板。页面保留第二列侧栏菜单（账号、任务中心、积分明细、活动奖励、签到设置、定时任务、运行日志）以及自动签到概览和最近活动；窄窗口下页面内侧栏隐藏，改用底部导航切换；管理密钥入口在「签到设置」页。账号页保留余额和刷新积分。
 
 显示名称为「AI 工具箱」，包名仍为 `dsh-workbuddy-accounts`，页面路径仍为 `/workbuddy-accounts/`。
 

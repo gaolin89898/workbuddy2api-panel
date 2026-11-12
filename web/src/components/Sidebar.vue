@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { Button as AButton, Tooltip as ATooltip } from '@arco-design/web-vue';
 import { IconUserGroup, IconCalendar, IconFile, IconSafe, IconMoon, IconSun, IconClockCircle, IconCheckSquare, IconGift, IconThunderbolt, IconBook, IconCalendarClock, IconCopy } from '@arco-design/web-vue/es/icon';
-import { clockTime, formatHour, KEY_STORAGE } from '../useAccounts';
+import { formatHour, KEY_STORAGE } from '../useAccounts';
 
 const props = defineProps({ model: Object, view: String, dark: Boolean, hostTheme: Boolean });
 const emit = defineEmits(['navigate', 'key', 'theme']);
@@ -45,7 +45,6 @@ function copyKey() {
         <span class="side-muted">每天 · 北京时间</span>
         <div class="side-next"><icon-clock-circle /><span>{{ model.nextRun ? `下次运行 ${model.nextRun.day} ${model.nextRun.time}` : '自动签到已关闭' }}</span></div>
       </div>
-      <section class="recent-activity"><span class="nav-caption">最近活动</span><div v-for="entry in model.recentActivity" :key="entry.ts + entry.text" class="activity-row"><time>{{ clockTime(entry.ts).slice(0, 5) }}</time><span :title="entry.text">{{ entry.text }}</span></div><div v-if="!model.recentActivity.length" class="side-muted">暂无任务记录</div></section>
     </div>
     <div class="sidebar-footer">
       <div class="inline-between connection"><span><i :class="['status-dot', { offline: !model.connected }]" />{{ model.connected ? '服务已连接' : '未连接' }}</span><small>127.0.0.1</small></div>

@@ -125,8 +125,6 @@ main { padding: 32px 40px 48px; }
 .time-separator { color: #b8b7b1; }
 .side-muted { color: #979aa4; font-size: 10px; }
 .side-next { display: flex; align-items: center; gap: 7px; border-top: 1px solid #2b2d35; margin-top: 9px; padding-top: 9px; color: #979aa4; font-size: 10px; }
-.recent-activity { margin-top: 25px; }
-.recent-activity .nav-caption { margin-bottom: 10px; }
 .activity-row { display: flex; gap: 7px; color: #979aa4; font-size: 10px; margin: 7px 0; align-items: baseline; }
 .activity-row::before { content: ''; width: 4px; height: 4px; background: #6f727d; border-radius: 50%; flex-shrink: 0; align-self: center; }
 .activity-row:first-of-type::before { background: #91a6ff; }

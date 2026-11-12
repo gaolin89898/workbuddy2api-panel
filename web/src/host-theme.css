@@ -40,7 +40,7 @@
 [data-host-theme='dsh'] .side-badge::before, [data-host-theme='dsh'] .connection .status-dot { background: var(--accent); }
 [data-host-theme='dsh'] .brand-mark { background: var(--host-button); color: var(--host-button-text); }
 [data-host-theme='dsh'] .arco-btn-primary.arco-btn-disabled { background: var(--accent-soft); color: var(--muted); }
-[data-host-theme='dsh'] .arco-btn-primary:not(.arco-btn-disabled) { background: var(--host-button); color: var(--host-button-text); }
+[data-host-theme='dsh'] .arco-btn-primary:not(.arco-btn-disabled) { background: var(--host-button); color: var(--host-button-text, var(--host-page, #fff)); }
 [data-host-theme='dsh'] .arco-btn-primary:not(.arco-btn-disabled):hover { background: var(--host-button-hover); }
 [data-host-theme='dsh'] .arco-scrollbar-thumb-bar { background: var(--host-scrollbar); }
 [data-host-theme='dsh'] :is(.arco-scrollbar-thumb:hover, .arco-scrollbar-thumb-dragging) .arco-scrollbar-thumb-bar { background: var(--host-scrollbar-hover); }
@@ -50,8 +50,6 @@
 [data-host-theme='dsh'] ::-webkit-scrollbar-track { background: transparent; }
 [data-host-theme='dsh'] ::-webkit-scrollbar-thumb { background: var(--host-scrollbar); border-radius: 8px; }
 [data-host-theme='dsh'] ::-webkit-scrollbar-thumb:hover { background: var(--host-scrollbar-hover); }
-.dsh-embedded .workspace { margin-left: 0; }
-.dsh-embedded :is(.mobile-header, .mobile-navigation) { display: none; }
 @media (max-width: 820px) {
   .dsh-embedded main { padding-bottom: 32px; }
 }

@@ -42,7 +42,11 @@ func main() {
 	cfgPath := flag.String("config", "config.json", "配置文件路径（默认当前目录 config.json；不存在时自动生成推荐配置）")
 	gateway := flag.Bool("gateway", false, "启用 WorkBuddy API 转发（默认仅运行账号管理与每日签到）")
 	desktop := flag.Bool("desktop", desktopDefault, "在桌面窗口中打开账号管理")
+	silent := flag.Bool("silent", false, "隐藏控制台窗口后台运行（Windows；计划任务/脚本拉起时无黑框）")
 	flag.Parse()
+	if *silent {
+		hideConsoleWindow()
+	}
 	if *desktop {
 		explicitConfig := false
 		flag.Visit(func(f *flag.Flag) {

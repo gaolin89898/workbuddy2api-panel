@@ -12,4 +12,4 @@ func prepareDesktop(string, bool) (string, func(), error) {
 
 func reportDesktopError(err error) { fmt.Println(err) }
 
-func runDesktop(string, *Config) error { return fmt.Errorf("desktop build required") }
+func runDesktop(string, *Config, bool) error { return fmt.Errorf("desktop build required") }

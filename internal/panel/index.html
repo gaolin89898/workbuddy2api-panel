@@ -1336,16 +1336,19 @@ legend { font-size: 12px; color: var(--ink-3); font-weight: 600; padding-bottom:
   </div>
 </div>
 
-<!-- 密钥 -->
+<!-- 登录 -->
 <div class="veil" id="keyVeil" data-lock="1">
   <div class="dlg" style="width:420px">
     <header>
-      <h3>需要访问密钥</h3>
-      <div class="hint">该网关已启用 api_key 鉴权，请输入 config.json 中的密钥。</div>
+      <h3>登录控制台</h3>
+      <div class="hint">输入面板账号密码（默认 admin / 123456，可在 config.json 的 panel_username / panel_password 修改）；也可直接粘贴 api_key。</div>
     </header>
     <div class="body">
-      <form style="display:contents" onsubmit="return false"><input type="password" id="keyInput" placeholder="api_key" autocomplete="off"></form>
-      <div class="state err" id="keyErr" hidden style="margin-top:10px">密钥不正确，请重试。</div>
+      <form style="display:contents" onsubmit="return false">
+        <input type="text" id="userInput" placeholder="用户名" autocomplete="username" style="margin-bottom:8px">
+        <input type="password" id="keyInput" placeholder="密码 / api_key" autocomplete="current-password">
+      </form>
+      <div class="state err" id="keyErr" hidden style="margin-top:10px">登录失败，请重试。</div>
     </div>
     <footer>
       <span class="grow"></span>

@@ -61,8 +61,10 @@ export function createHandler({ backendPort = 7863 } = {}) {
   // Each machine keeps its Go service on loopback. DSH carries the registered
   // plugin route to the selected machine; this is never an arbitrary URL proxy.
   const backend = `http://127.0.0.1:${backendPort}`;
+  // 面板账号密码登录本身是换取令牌的端点：凭证由后端校验，无需预先持有密钥。
+  const isLogin = (path, method) => method === 'POST' && path === 'auth/login';
   async function forward(req, res, { path, method, authorization, contentType, body }) {
-    if (!/^Bearer \S+$/i.test(authorization) || authorization.length > 8192) return json(res, 401, '请输入当前电脑账号服务的管理密钥');
+    if (!isLogin(path, method) && (!/^Bearer \S+$/i.test(authorization) || authorization.length > 8192)) return json(res, 401, '请输入当前电脑账号服务的管理密钥');
     if (!apiRoute(path)) return json(res, 400, 'Invalid API path');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 330_000);
@@ -136,7 +138,7 @@ export function createHandler({ backendPort = 7863 } = {}) {
     const path = relative.slice(4) + url.search;
     if (!apiRoute(path)) return json(res, 400, 'Invalid API path');
     const authorization = req.headers.authorization || '';
-    if (!/^Bearer \S+$/i.test(authorization)) return json(res, 401, '请输入本机服务的管理密钥');
+    if (!isLogin(path, req.method) && !/^Bearer \S+$/i.test(authorization)) return json(res, 401, '请输入本机服务的管理密钥');
     const body = await readBody(req, res, 32 * 1024 * 1024);
     if (body === null) return;
     return forward(req, res, { path, method: req.method, authorization, contentType: req.headers['content-type'], body });

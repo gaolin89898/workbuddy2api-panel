@@ -4,6 +4,8 @@ import { Alert as AAlert, Button as AButton, Modal as AModal, Message } from '@a
 import { IconCheck, IconExport, IconFile, IconInfoCircle, IconSafe, IconUpload, IconCopy } from '@arco-design/web-vue/es/icon';
 import TraeAccountForm from './TraeAccountForm.vue';
 import QoderAccountForm from './QoderAccountForm.vue';
+import MiniMaxAccountForm from './MiniMaxAccountForm.vue';
+import LoomyAccountForm from './LoomyAccountForm.vue';
 
 const props = defineProps({ model: Object });
 const fileInput = ref(null);
@@ -22,9 +24,11 @@ async function copyLink() {
 
 <template>
   <a-modal :visible="model.addVisible" title="添加账号" width="560px" :footer="false" modal-class="account-dialog" :unmount-on-close="true" @cancel="model.closeAdd()">
-    <div class="add-platforms" role="group" aria-label="添加账号平台"><button v-for="item in [{ id: 'workbuddy', name: 'WorkBuddy' }, { id: 'trae', name: 'Trae' }, { id: 'qoder', name: 'Qoder' }]" :key="item.id" :class="{ active: model.addProvider === item.id }" :aria-pressed="model.addProvider === item.id" @click="model.addProvider = item.id">{{ item.name }}</button></div>
+    <div class="add-platforms" role="group" aria-label="添加账号平台"><button v-for="item in [{ id: 'workbuddy', name: 'WorkBuddy' }, { id: 'trae', name: 'Trae' }, { id: 'qoder', name: 'Qoder' }, { id: 'minimax', name: 'MiniMax' }, { id: 'loomy', name: 'Loomy' }]" :key="item.id" :class="{ active: model.addProvider === item.id }" :aria-pressed="model.addProvider === item.id" @click="model.addProvider = item.id">{{ item.name }}</button></div>
     <TraeAccountForm v-if="model.addProvider === 'trae'" :model="model" />
     <QoderAccountForm v-else-if="model.addProvider === 'qoder'" :model="model" />
+    <MiniMaxAccountForm v-else-if="model.addProvider === 'minimax'" :model="model" />
+    <LoomyAccountForm v-else-if="model.addProvider === 'loomy'" :model="model" />
     <template v-else>
     <p class="dialog-intro">通过浏览器授权或导入 Cockpit JSON 添加账号。</p>
     <div class="dialog-tabs" role="tablist" aria-label="添加方式"><button role="tab" :aria-selected="model.addTab === 'login'" :class="{ active: model.addTab === 'login' }" @click="model.addTab = 'login'"><icon-export />浏览器登录</button><button role="tab" :aria-selected="model.addTab === 'import'" :class="{ active: model.addTab === 'import' }" @click="model.addTab = 'import'"><icon-file />导入 JSON</button></div>

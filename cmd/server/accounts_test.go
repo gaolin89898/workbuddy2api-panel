@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -15,7 +16,9 @@ import (
 func TestAccountHandlerRestrictsRoutes(t *testing.T) {
 	p := pool.New("")
 	defer p.Close()
-	h := accountHandler(panel.New(panel.Config{AccountsOnly: true, Pool: p, APIKey: "secret"}))
+	h := accountHandler(panel.New(panel.Config{AccountsOnly: true, Pool: p, APIKey: "secret"}), func() any {
+		return map[string]any{"service": "workbuddy-console", "ok": true, "gateway": false, "instance": "test-instance"}
+	})
 	for _, tc := range []struct {
 		method, path string
 		status       int
@@ -36,6 +39,11 @@ func TestAccountHandlerRestrictsRoutes(t *testing.T) {
 		{"POST", "/panel/api/trae/checkin_all", 401},
 		{"POST", "/panel/api/trae/balance_all", 401},
 		{"POST", "/panel/api/trae/accounts/t1/remove", 401},
+		{"POST", "/panel/api/loomy/accounts", 401},
+		{"POST", "/panel/api/loomy/local_import", 401},
+		{"POST", "/panel/api/loomy/checkin_all", 401},
+		{"POST", "/panel/api/loomy/balance_all", 401},
+		{"POST", "/panel/api/loomy/accounts/l1/remove", 401},
 		{"POST", "/panel/api/checkin_all", 401},
 		{"POST", "/panel/api/login/start", 401},
 		{"POST", "/panel/api/config", 401},
@@ -131,5 +139,152 @@ func TestAccountOptionsPersistence(t *testing.T) {
 	}
 	if reloaded.schedule.RefreshAfterCheckin || reloaded.schedule.CatchupOnStart || sch.CheckinRefreshEnabled() {
 		t.Fatal("new options were not persisted and applied")
+	}
+}
+
+// 统一后台第二阶段：账号模式迁移必须幂等、保留未知字段、不覆盖显式配置、
+// 失败不破坏旧数据；任务族开关物化为账号模式的有效状态（false）。
+func TestMigrateAccountSettings(t *testing.T) {
+	root := t.TempDir()
+	configPath := filepath.Join(root, "config.json")
+	settingsPath := filepath.Join(root, "data", "account-settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settingsPath, []byte(`{"checkin_enabled":false,"checkin_hours":[8],"refresh_after_checkin":true,"catchup_on_start":true}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	original := `{"listen":":7863","unknown_field":{"keep":true},"schedule":{"travel_enabled":true,"custom_key":1}}`
+	if err := os.WriteFile(configPath, []byte(original), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateAccountSettings(configPath, settingsPath); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	// 迁移产物：显式键不覆盖（travel_enabled 保持 true）、缺失键补齐、未知字段保留。
+	raw, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Listen      string `json:"listen"`
+		Unknown     any    `json:"unknown_field"`
+		Schedule    map[string]any `json:"schedule"`
+		Checkin     map[string]any `json:"checkin"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.Listen != ":7863" || doc.Unknown == nil {
+		t.Fatalf("unknown fields or explicit keys lost: %s", raw)
+	}
+	if doc.Schedule["travel_enabled"] != true || doc.Schedule["custom_key"] != float64(1) {
+		t.Fatalf("explicit schedule keys were overwritten: %v", doc.Schedule)
+	}
+	for _, key := range []string{"activity_enabled", "keepalive_enabled", "blackcat_enabled", "growth_enabled", "streak_enabled"} {
+		if doc.Schedule[key] != false {
+			t.Fatalf("schedule.%s = %v, want false (materialized)", key, doc.Schedule[key])
+		}
+	}
+	if doc.Schedule["checkin_hours"] == nil || doc.Checkin["catchup_on_start"] != true {
+		t.Fatalf("checkin settings not synced: schedule=%v checkin=%v", doc.Schedule, doc.Checkin)
+	}
+	// 备份存在且内容等于原文。
+	matches, _ := filepath.Glob(configPath + ".migrate-bak-*")
+	if len(matches) != 1 {
+		t.Fatalf("expected exactly one backup, got %v", matches)
+	}
+	if bak, err := os.ReadFile(matches[0]); err != nil || string(bak) != original {
+		t.Fatalf("backup mismatch: %v %s", err, bak)
+	}
+	// 幂等：第二次运行不再改写（备份不增加、内容不变）。
+	if err := migrateAccountSettings(configPath, settingsPath); err != nil {
+		t.Fatal(err)
+	}
+	matches, _ = filepath.Glob(configPath + ".migrate-bak-*")
+	if len(matches) != 1 {
+		t.Fatalf("migration is not idempotent: backups=%v", matches)
+	}
+	again, _ := os.ReadFile(configPath)
+	var doc2 map[string]any
+	if json.Unmarshal(again, &doc2) != nil || doc2["listen"] != ":7863" {
+		t.Fatalf("second migration changed data: %s", again)
+	}
+}
+
+// 纯网关部署（无 account-settings.json）不迁移；损坏的 config 原样保留并报错。
+func TestMigrateAccountSettingsBoundaries(t *testing.T) {
+	root := t.TempDir()
+	if err := migrateAccountSettings(filepath.Join(root, "config.json"), filepath.Join(root, "settings.json")); err != nil {
+		t.Fatalf("missing settings must be a no-op: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "config.json")); !os.IsNotExist(err) {
+		t.Fatal("config must not be created when no account settings exist")
+	}
+	settingsPath := filepath.Join(root, "settings.json")
+	if err := os.WriteFile(settingsPath, []byte(`{"checkin_enabled":true,"checkin_hours":[9]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	broken := filepath.Join(root, "config.json")
+	if err := os.WriteFile(broken, []byte(`{broken`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateAccountSettings(broken, settingsPath); err == nil {
+		t.Fatal("broken config must fail the migration")
+	}
+	raw, _ := os.ReadFile(broken)
+	if string(raw) != "{broken" {
+		t.Fatalf("broken config was modified: %s", raw)
+	}
+}
+
+// 仅账号模式：/panel/api/config 保持签到设置形态（旧契约），新接口 settings/checkin
+// 可读写并热应用；capabilities 如实报告 gateway=false。
+func TestAccountModeSettingsEndpoints(t *testing.T) {
+	p := pool.New("")
+	defer p.Close()
+	sch := scheduler.New(scheduler.Config{CheckinOnly: true})
+	settingsPath := filepath.Join(t.TempDir(), "account-settings.json")
+	settings, err := loadAccountSettings(settingsPath, Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	pn := panel.New(panel.Config{
+		AccountsOnly: true, Pool: p, Scheduler: sch, APIKey: "secret",
+		ConfigPath: settingsPath,
+		LoadCheckin: settings.load,
+		SaveCheckin: func(raw []byte) error {
+			_, err := settings.save(raw, sch)
+			return err
+		},
+	})
+	call := func(method, path string, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer secret")
+		rec := httptest.NewRecorder()
+		accountHandler(pn, func() any { return map[string]any{"ok": true} }).ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := call("GET", "/panel/api/capabilities", ""); rec.Code != 200 || strings.Contains(rec.Body.String(), `"gateway":true`) {
+		t.Fatalf("capabilities: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := call("GET", "/panel/api/config", ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"checkin_hours"`) {
+		t.Fatalf("legacy config shape: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := call("GET", "/panel/api/settings/checkin", ""); rec.Code != 200 || !strings.Contains(rec.Body.String(), `"refresh_after_checkin"`) {
+		t.Fatalf("settings/checkin GET: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := call("POST", "/panel/api/settings/checkin", `{"checkin_enabled":false,"checkin_hours":[7,19]}`); rec.Code != 200 {
+		t.Fatalf("settings/checkin POST: %d %s", rec.Code, rec.Body.String())
+	}
+	reloaded, err := loadAccountSettings(settingsPath, Default())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.schedule.Enabled || len(reloaded.schedule.Hours) != 2 || reloaded.schedule.Hours[0] != 7 {
+		t.Fatalf("settings/checkin POST did not persist: %+v", reloaded.schedule)
+	}
+	if rec := call("POST", "/panel/api/settings/checkin", `{"checkin_enabled":true,"checkin_hours":[25]}`); rec.Code == 200 {
+		t.Fatal("invalid hours must be rejected")
 	}
 }

@@ -326,12 +326,33 @@ function formatRate(rate) {
   return n.toFixed(1) + 'tok/s';
 }
 
-/* ── 密钥门 ───────────────────────────────────────────────────────── */
-function openKey() { $('keyVeil').classList.add('on'); setTimeout(() => $('keyInput').focus(), 60); }
+/* ── 登录门 ───────────────────────────────────────────────────────── */
+/* 优先走面板账号密码登录（POST auth/login 换会话令牌）；登录未启用时回退为
+   直接粘贴 api_key（与既有行为一致，后端两种 Bearer 都接受）。 */
+function openKey() { $('keyVeil').classList.add('on'); setTimeout(() => $('userInput').focus(), 60); }
 $('btnKey').onclick = async () => {
-  const v = $('keyInput').value.trim();
+  const u = $('userInput').value.trim();
+  const v = $('keyInput').value;
   if (!v) return;
-  localStorage.setItem(LS_KEY, v);
+  if (u) {
+    try {
+      const r = await fetch('/panel/api/auth/login', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: v }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.token) {
+        localStorage.setItem(LS_KEY, d.token);
+        $('keyErr').hidden = true;
+        $('keyVeil').classList.remove('on');
+        start();
+        return;
+      }
+      if (r.status !== 400) { $('keyErr').hidden = false; return; }
+      // 400 = 面板账号密码登录未启用：把输入当 api_key 粘贴（回退旧行为）。
+    } catch { $('keyErr').hidden = false; return; }
+  }
+  localStorage.setItem(LS_KEY, v.trim());
   try {
     await api('overview');
     $('keyErr').hidden = true;
@@ -339,6 +360,7 @@ $('btnKey').onclick = async () => {
     start();
   } catch (e) { $('keyErr').hidden = false; }
 };
+$('userInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('keyInput').focus(); });
 $('keyInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnKey').click(); });
 
 /* ── 路由 ─────────────────────────────────────────────────────────── */

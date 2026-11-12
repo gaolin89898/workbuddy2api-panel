@@ -15,6 +15,9 @@ data/
 
 # Config with secrets (use config.example.json)
 config.json
+/config.gateway-preview.json
+/config.json.migrate-bak-*
+/.loomy-attachments/
 
 # Build artifacts
 *.tmp

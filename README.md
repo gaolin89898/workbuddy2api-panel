@@ -1,11 +1,11 @@
-<p align="center">
+﻿<p align="center">
   <img src="https://raw.githubusercontent.com/DGZSbot/ai-icon/refs/heads/main/WorkBuddy.png" alt="WorkBuddy2API" width="120">
 </p>
 
 <h1 align="center">WorkBuddy2API Panel</h1>
 
 <p align="center">
-  <b>WorkBuddy · Trae · Qoder 账号管理与每日签到 · 可选 OpenAI 兼容网关</b><br>
+  <b>WorkBuddy · Trae · Qoder · MiniMax 账号管理与每日签到 · 可选 OpenAI 兼容网关</b><br>
   AI 工具箱 · Windows 桌面窗口 · DSH 插件 · 账号切换 · 成长任务 · 活动奖励 · 状态持久化
 </p>
 
@@ -20,19 +20,19 @@
 
 ## 使用声明（必读）
 
-本项目用于管理本人授权的 WorkBuddy / CodeBuddy、Trae 和 Qoder 账号，以及在本机或私有环境接入个人工具。请遵守各平台服务条款，不得用于批量注册、共享或转售账号额度、卡密分发及其他违规用途。
+本项目用于管理本人授权的 WorkBuddy / CodeBuddy、Trae、Qoder 和 MiniMax 账号，以及在本机或私有环境接入个人工具。请遵守各平台服务条款，不得用于批量注册、共享或转售账号额度、卡密分发及其他违规用途。
 
 代码采用 MIT 协议，允许的使用和再分发范围以 [LICENSE](LICENSE) 为准；该许可不授予任何平台接口或服务的使用权，也不代表作者对第三方收费版本提供支持或背书。账号凭证、客户端登录快照和管理密钥应由本人保管。平台接口、活动规则和账号资格可能变化，执行结果以平台回读状态为准。
 
 ## 项目简介
 
-WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **WorkBuddy / Trae / Qoder** 三个平台的账号、积分和每日签到，支持本机 Windows 客户端账号切换、WorkBuddy 成长任务与活动奖励。页面可通过浏览器、Windows 桌面窗口或 DSH 插件使用，账号和设置由 Go 后端持久保存。
+WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **WorkBuddy / Trae / Qoder / MiniMax** 四个平台的账号、积分和每日签到，支持本机 Windows 客户端账号切换、WorkBuddy 成长任务与活动奖励。页面可通过浏览器、Windows 桌面窗口或 DSH 插件使用，账号和设置由 Go 后端持久保存。
 
 直接运行程序进入账号管理模式；需要为个人工具提供 OpenAI 兼容接口时，使用同一程序加上 `-gateway`。
 
 | 启动方式 | 页面与能力 | 自动运行 |
 |---|---|---|
-| 默认账号管理 | AI 工具箱：账号、任务中心、活动奖励、签到设置、运行日志；支持三个平台与本机客户端切换 | 按北京时间执行签到、按设置刷新积分和启动补签；任务与活动奖励手动执行 |
+| 默认账号管理 | AI 工具箱：账号、任务中心、活动奖励、签到设置、运行日志；支持四个平台与 WorkBuddy / Trae / Qoder 本机客户端切换 | 按北京时间执行签到、按设置刷新积分和启动补签；任务与活动奖励手动执行 |
 | `-gateway` | WorkBuddy 账号池管理、用量、模型、配置与日志，以及 `/v1/*` 接口 | 按 `config.json` 中的排程运行签到、保活、旅行、活跃等任务 |
 
 默认模式不开放 `/v1/*`，不初始化网关用量统计、会话路由或 Redis。Trae / Qoder 账号管理和 DSH 插件连接默认账号服务；启用 WorkBuddy 网关不会为这两个平台增加 API 转发能力。
@@ -41,8 +41,8 @@ WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **
 
 | 能力 | 说明 |
 |---|---|
-| 多平台账号 | WorkBuddy 浏览器授权与 Cockpit JSON 导入；Trae 国内版直接登录、凭证及备份导入；Qoder 国内版浏览器授权或 PAT |
-| 积分与每日签到 | 单号 / 全部签到、余额刷新、停用 / 启用、备注；每日 09:00 / 21:00 默认时刻可修改，Qoder 按 10:00 活动轮次处理 |
+| 多平台账号 | WorkBuddy 浏览器授权与 Cockpit JSON 导入；Trae 国内版直接登录、凭证及备份导入；Qoder 国内版浏览器授权或 PAT；MiniMax 国内版粘贴 Cookie / 令牌；Loomy（讯飞）本机桌面端会话导入或粘贴 session |
+| 积分与每日签到 | 单号 / 全部签到、余额刷新、停用 / 启用、备注；每日 09:00 / 21:00 默认时刻可修改，Qoder 按 10:00 活动轮次处理，Loomy 按宠物打工档位忠实补领（见下文） |
 | 本机客户端切换 | Windows WorkBuddy / WorkBuddy AI、Trae CN、Qoder CN；登录态备份、重启后身份核验和失败回滚，支持自定义安装目录和 Qoder 更新目录 |
 | 成长任务与活动奖励 | WorkBuddy 国内版个人账号扫描待办、执行全部待办、查看队列、领取奖励；企业身份按实际账号属性判断，执行后回读进度 |
 | 状态持久化 | 凭证、账号状态、备注和签到设置保存在本地；网关模式额外支持用量归档及可选 Upstash Redis 镜像 |
@@ -50,6 +50,36 @@ WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **
 | OpenAI 兼容网关 | `-gateway` 下提供聊天补全、模型列表及 Anthropic Messages 兼容联网搜索；流式 / 非流式、推理内容、工具调用和模型档位兼容 |
 | 网关账号调度 | 快过期积分加权、成本分层、轮询 / 顺序耗尽、冷却 / 熔断、在途租约和会话粘性；国内版与国际版可独立配置 |
 | 网关运维 | 模型与积分包查询、用量和请求日志、配置热更新、独立任务排程、提示词处理及请求指纹脱敏 |
+
+## MiniMax 签到接入
+
+MiniMax 国内版（agent.minimaxi.com，实际跳转 agent.minimax.cn）已完整接入：账号管理、每日签到、余额查询与浏览器授权。
+
+| 能力 | 实现方式 |
+|---|---|
+| 浏览器授权添加 | OAuth 设备授权（`account.minimax.cn/oauth2/device/code` + PKCE），与 MiniMax Code 桌面端同流程；授权后保存 access/refresh 令牌 |
+| 凭证续期 | 令牌临期（<5 分钟）时用 refresh_token 自动续期并落盘；也可在「凭证」里粘贴新的 Cookie / Bearer 令牌 |
+| 每日签到 | `GET /minimax-cloud/api/v1/signin/status` 回读面板，可领取时 `POST /signin/claim`（回读确认，绝不重复领取）；跟随共用签到时刻 |
+| 请求签名 | 与桌面端主进程一致：`yy = md5(encodeURIComponent(路径?参数) + "_" + 请求体或"{}" + md5(unix毫秒) + "ooui")`，`x-signature = md5(秒级时间戳 + 盐 + 请求体)`；公共参数 `device_platform=web&biz_id=3&app_id=3001&client=desktop&region=cn` 等 |
+| 积分余额 | `www.minimaxi.com/backend/account/token_plan_credit?business=Agent`（仅 Bearer）；响应字段未完全抓包确认，按常见字段名容错解析 |
+| 账号身份 | 访问令牌 JWT 的 `account_id` / `sub`，凭证更新后身份不变 |
+
+实现依据来自本机 MiniMax Code 桌面端（`AppData\Roaming\MiniMax/logs` 与安装目录 asar 中的 TypeScript 源码）；若站点调整签名盐值或端点，对照桌面端新版本更新 `internal/minimax/client.go` 顶部常量即可。
+
+## Loomy 签到接入
+
+Loomy（科大讯飞「AI 工作搭子」桌面端）已完整接入：账号管理、每日奖励领取与积分余额查询。
+
+| 能力 | 实现方式 |
+|---|---|
+| 账号添加 | 「本机导入」读取本机已登录桌面端的 `C:\Users\Public\Loomy\<用户哈希>\userData\auth-session.json`（仅限本机请求；多个用户目录并存时，按文件修改时间取**最近写入**的一份）；或粘贴 auth-session.json 中的 `session` + `userid` |
+| 登录边界 | 桌面端登录依赖短信验证与 HMAC 签名，面板不仿造登录；session 失效（业务码 100002）时请在 Loomy 桌面端重新登录后重新导入 |
+| 每日奖励 | Loomy 无传统签到，每日积分来自「宠物打工」：按当日实际使用量（有效会话 × 深度轮次）计分，跨过档位阈值 tier_1/2/3 = 60/100/150 分后领取，每日上限 1000 积分。面板**忠实补领**：只申请本机桌面端已达成（`%APPDATA%\Loomy\pet-work.json` 的当日 `petWorkScore`）、服务端尚未发放（`rewardedTierIds`）的档位，升序逐个 `POST /api/v1/pet-work/rewards` 并以响应中的权威状态确认；无欠账记为「今日已结算」，档位随当日使用增长后由下一轮调度复查 |
+| 积分余额 | 个人口径：`GET /api/v2/points/records`（个人流水）响应根部的 `balance`（桌面端「积分」页余额同源）。团队口径 `GET /api/v1/team-points/balance` 仅对已切换团队的账号有效，个人账号返回 100001「当前未切换到团队」 |
+
+积分 API（`https://loomyad.xunfei.cn`，即桌面端加密配置 `resources/.env.prod` 的 `LOOMY_POINTS_BASE_URL` 生产地址）无需签名，鉴权仅自定义头 `token: <session>`，业务信封 `{code, desc, data}`（`000000` 成功）。注意桌面端登录颁发的是生产 token：打到测试环境 `ossptest.voicecloud.cn` 会返回业务码 100002「登录已失效」，并非真实掉登录。协议依据为本机 Loomy 桌面端 `resources/app.asar.unpacked/electron/`（`points-service.js`、`pet/pet-work-service.js`，未压缩主进程源码）；本地进度按 `sha256(userid)` 分桶（已用本机真实 userKey 校验）。若 Loomy 调整端点或档位配置，对照新版桌面端更新 `internal/loomy/client.go`。
+
+## 成长任务与活动奖励
 
 ## 成长任务与活动奖励
 

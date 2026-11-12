@@ -9,11 +9,9 @@ import (
 //go:embed all:accounts_dist
 var accountAssets embed.FS
 
-func (p *Panel) accountRoutes() {
-	p.traeRoutes()
-	p.qoderRoutes()
-	p.desktopRoutes()
-	p.benefitRoutes()
+// vueRoutes 统一账号端（Vue 构建产物 accounts_dist）。
+// 两种模式都挂 /panel/：账号管理页面始终从这里进入。
+func (p *Panel) vueRoutes() {
 	p.mux.HandleFunc("GET /panel/{$}", func(w http.ResponseWriter, r *http.Request) {
 		index, _ := accountAssets.ReadFile("accounts_dist/index.html")
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -28,18 +26,14 @@ func (p *Panel) accountRoutes() {
 			files.ServeHTTP(w, r)
 		}))
 	}
-	p.mux.HandleFunc("GET /panel/api/overview", p.withAuth(p.overview))
-	p.mux.HandleFunc("GET /panel/api/logs", p.withAuth(p.logsHandler))
-	p.mux.HandleFunc("GET /panel/api/config", p.withAuth(p.getConfig))
-	p.mux.HandleFunc("POST /panel/api/config", p.withAuth(p.saveConfig))
-	p.mux.HandleFunc("POST /panel/api/login/start", p.withAuth(p.loginStart))
-	p.mux.HandleFunc("GET /panel/api/login/poll", p.withAuth(p.loginPoll))
-	p.mux.HandleFunc("POST /panel/api/import/cockpit", p.withAuth(p.importCockpit))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/revive", p.withAuth(p.accountRevive))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/disable", p.withAuth(p.accountDisable))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/remove", p.withAuth(p.accountRemove))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/checkin", p.withAuth(p.accountCheckin))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/balance", p.withAuth(p.accountBalance))
-	p.mux.HandleFunc("POST /panel/api/checkin_all", p.withAuth(p.checkinAll))
-	p.mux.HandleFunc("POST /panel/api/balance_all", p.withAuth(p.balanceAll))
+}
+
+// classicRoutes 经典网关控制台（旧 index.html + app.js，API 路径为绝对 /panel/api/*，
+// 挂到子路径无需改动）。迁移期保留独立地址 /panel/classic/，与 Vue 并存；
+// Vue 页面功能补齐后再删除（见统一后台重构第五阶段）。
+func (p *Panel) classicRoutes() {
+	p.mux.HandleFunc("GET /panel/classic/{$}", p.index)
+	p.mux.HandleFunc("GET /panel/classic/app.js", p.appScript)
+	p.mux.HandleFunc("GET /panel/classic/mobile.css", p.mobileStyle)
+	p.mux.HandleFunc("GET /panel/classic/mobile.js", p.mobileScript)
 }

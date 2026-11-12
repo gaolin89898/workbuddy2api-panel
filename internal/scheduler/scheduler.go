@@ -42,6 +42,9 @@ type Config struct {
 	CheckinDisabled bool
 	// CheckinOnly excludes reward redemption and refreshes expiring credentials before check-in.
 	CheckinOnly bool
+	// StreakDisabled 关闭签到后的连登管家（连登兑换 + 抽奖）。与 CheckinOnly 解耦：
+	// 网关模式下按 config schedule.streak_enabled 决定（迁移保留既有设置），账号模式恒关。
+	StreakDisabled bool
 	// CheckinHook runs another account provider at the same automatic slots.
 	CheckinHook func()
 	// TravelDisabled 显式关闭猫猫旅行排程（schedule.travel_enabled=false）。
@@ -103,6 +106,27 @@ type Scheduler struct {
 	// 否则界面 5 秒轮询会让人误以为数据也是 5 秒级新鲜。
 	lastBalanceRefresh     atomic.Int64
 	checkinRefreshDisabled atomic.Bool
+
+	// lastRuns 各任务族最近一次执行的开始时刻（key → Unix 纳秒），供面板
+	// 「定时任务」页透出「上次运行」。仅内存态，重启清零（设计如此：重启后
+	// 「上次运行」无意义，下次排程触发即重新记录）。
+	lastRuns sync.Map
+}
+
+// noteRun 记录任务族最近一次执行开始时刻。
+func (s *Scheduler) noteRun(kind string) {
+	s.lastRuns.Store(kind, time.Now().UnixNano())
+}
+
+// RunStatus 汇总各任务族最近一次执行时刻（Unix 秒；0 = 进程内尚未执行过）。
+// balance 复用 lastBalanceRefresh（完成时刻），其余为开始时刻。
+func (s *Scheduler) RunStatus() map[string]int64 {
+	out := map[string]int64{"balance": s.lastBalanceRefresh.Load() / int64(time.Second)}
+	s.lastRuns.Range(func(key, value any) bool {
+		out[key.(string)] = value.(int64) / int64(time.Second)
+		return true
+	})
+	return out
 }
 
 // SetCheckinRefreshEnabled controls balance queries after check-in in account mode.
@@ -219,6 +243,19 @@ func (s *Scheduler) Reconfigure(checkinHours, travelHours, activityHours, keepal
 	s.schedMu.Unlock()
 	poke(s.rearmSchedule)
 	poke(s.rearmBalance)
+}
+
+// ReconfigureCheckin 只更新签到时点与开关（统一签到设置保存时使用）。
+// 与 Reconfigure 的区别：不触碰旅行 / 活跃 / 保活 / 夜猫子 / 成长任务族的排程
+// 状态——那些归 config.json 网关设置管，签到设置保存不得覆盖。
+func (s *Scheduler) ReconfigureCheckin(checkinHours []int, checkinDisabled bool) {
+	s.schedMu.Lock()
+	if len(checkinHours) > 0 {
+		s.cfg.CheckinHours = checkinHours
+	}
+	s.cfg.CheckinDisabled = checkinDisabled
+	s.schedMu.Unlock()
+	poke(s.rearmSchedule)
 }
 
 // poke 非阻塞发一次唤醒信号（已有待处理信号则忽略，语义等价）。
@@ -447,6 +484,7 @@ func (s *Scheduler) runBatch(ctx context.Context, kinds []taskKind) {
 				s.RunBlackcatNow()
 			case taskGrowth:
 				// 成长任务队列：回调在 panel 侧异步启动（返回不等执行完），nil 未挂载则跳过。
+				s.noteRun("growth")
 				s.schedMu.Lock()
 				hook := s.cfg.GrowthHook
 				s.schedMu.Unlock()
@@ -484,6 +522,7 @@ func sleepCtx(ctx context.Context, d time.Duration) bool {
 func (s *Scheduler) RunCheckinNow() {
 	s.checkinMu.Lock()
 	defer s.checkinMu.Unlock()
+	s.noteRun("checkin")
 	expiringSoon := s.ExpiringSoonWindow()
 	includeDisabled := s.includeDisabledInTasks()
 	for _, st := range s.cfg.Pool.List() {
@@ -550,8 +589,20 @@ func (s *Scheduler) RunCheckinNow() {
 			ExpiryBuckets:     poolExpiryBuckets(buckets),
 		})
 	}
-	if !s.cfg.CheckinOnly {
+	if !s.cfg.CheckinOnly && !s.cfg.StreakDisabled {
 		s.RunStreakBonusNow()
+	}
+}
+
+// RunCheckinHook 触发签到挂载的旁路任务（Trae / MiniMax / Loomy 旁路签到）。
+// 手动全量签到与排程批次共用同一执行入口：自动批次在 runBatch 里跑
+// RunCheckinNow + CheckinHook，面板手动触发走 RunCheckinNow + RunCheckinHook。
+func (s *Scheduler) RunCheckinHook() {
+	s.schedMu.Lock()
+	hook := s.cfg.CheckinHook
+	s.schedMu.Unlock()
+	if hook != nil {
+		hook()
 	}
 }
 
@@ -570,6 +621,7 @@ func (s *Scheduler) RunActivityNow() {
 
 // runActivity 活跃上报遍历，随 ctx 取消立即退出。
 func (s *Scheduler) runActivity(ctx context.Context) {
+	s.noteRun("activity")
 	first := true
 	includeDisabled := s.includeDisabledInTasks()
 	for _, st := range s.cfg.Pool.List() {
@@ -638,6 +690,7 @@ func (s *Scheduler) checkActivityStreak(a *auth.Auth) bool {
 // 连续 sessionDeadThreshold 次（3 次）才禁用（P0-1：13 个 disabled 号全是历史误判）。
 // 刷新成功 → ClearSessionDead 清计数（错误判定的账号有复活路径）。
 func (s *Scheduler) RunKeepaliveNow() {
+	s.noteRun("keepalive")
 	includeDisabled := s.includeDisabledInTasks()
 	for _, st := range s.cfg.Pool.List() {
 		if st.Disabled && !includeDisabled {
@@ -806,6 +859,7 @@ func (s *Scheduler) StartTaskSweep(ctx context.Context, interval time.Duration) 
 			case <-s.rearmSweep:
 				timer.Stop() // 间隔已变：立刻按新值重算
 			case <-timer.C:
+				s.noteRun("sweep")
 				s.schedMu.Lock()
 				hook := s.cfg.TaskSweepHook
 				s.schedMu.Unlock()
@@ -819,6 +873,7 @@ func (s *Scheduler) StartTaskSweep(ctx context.Context, interval time.Duration) 
 
 // RunTaskSweepNow 立刻跑一轮任务补领清扫（手动触发/测试用）。
 func (s *Scheduler) RunTaskSweepNow() {
+	s.noteRun("sweep")
 	s.schedMu.Lock()
 	hook := s.cfg.TaskSweepHook
 	s.schedMu.Unlock()

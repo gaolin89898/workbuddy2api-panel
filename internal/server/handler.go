@@ -43,6 +43,10 @@ type Config struct {
 	SoftCooldown time.Duration // 429/限流文案软冷却基数，默认 600s（连续触发指数退避，封顶 soft_rate_max）
 	RefreshSkew  time.Duration // token 提前刷新窗口，默认 10m
 
+	// Instance 数据目录指纹（cmd/server 注入，healthz 透出）：宿主/桌面窗口
+	// 据此识别"同一份账号数据"，不仅凭端口或 API Key 判断。空 = 不透出。
+	Instance string
+
 	// Panel 管理面板 handler（可选；nil = 不挂载）。挂载在 /panel/ 前缀下，
 	// 面板自带 Bearer 鉴权（同一 api_key）与内嵌静态资源，主路由只做转发。
 	Panel http.Handler
@@ -223,13 +227,19 @@ func (h *Handler) healthz(w http.ResponseWriter, r *http.Request) {
 		"global": h.cfg.Pool.ServableForRealm("global"),
 	}
 	// 恒无鉴权（负载均衡/编排探活只需 2xx/503 语义），身份靠 service 字段 + X-Service 头双保险。
+	// instance 为数据目录指纹（cmd/server 注入）：宿主据此识别"同一份账号数据"，
+	// 不再仅凭端口或 API Key 判断。
 	w.Header().Set("X-Service", ServiceName)
-	writeJSON(w, status, map[string]any{
+	body := map[string]any{
 		"healthy":        healthy,
 		"total":          total,
 		"service":        ServiceName,
 		"realm_servable": realmServable,
-	})
+	}
+	if h.cfg.Instance != "" {
+		body["instance"] = h.cfg.Instance
+	}
+	writeJSON(w, status, body)
 }
 
 func (h *Handler) status(w http.ResponseWriter, r *http.Request) {

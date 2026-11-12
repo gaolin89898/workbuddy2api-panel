@@ -17,7 +17,7 @@ func TestSecurityHeadersOnAllPanelResponses(t *testing.T) {
 	p := newTestPanel()
 	paths := []struct{ method, path string }{
 		{"GET", "/panel/"},
-		{"GET", "/panel/app.js"},
+		{"GET", "/panel/classic/app.js"},
 		{"GET", "/panel/api/overview"}, // 401（未提供 key）
 		{"POST", "/panel/api/config"},  // 401
 		{"GET", "/panel/api/nonexistent"},
@@ -64,18 +64,19 @@ func TestCSPDisallowsInlineScriptAndFraming(t *testing.T) {
 }
 
 // 页面必须引用外部脚本（内联脚本会被上面的 CSP 拦掉，页面将完全不可用）。
+// /panel/ 现为统一 Vue 账号端；经典网关控制台挂 /panel/classic/（迁移期并存）。
 func TestIndexReferencesExternalScript(t *testing.T) {
 	p := newTestPanel()
 	rec := httptest.NewRecorder()
-	p.ServeHTTP(rec, httptest.NewRequest("GET", "/panel/", nil))
+	p.ServeHTTP(rec, httptest.NewRequest("GET", "/panel/classic/", nil))
 	body := rec.Body.String()
 
 	if !strings.Contains(body, `<script src="app.js"></script>`) {
-		t.Error("index.html must load app.js externally (inline script is blocked by CSP)")
+		t.Error("classic index.html must load app.js externally (inline script is blocked by CSP)")
 	}
 	// 反例保护：出现内联 <script>...</script> 内容块即为回归
 	if strings.Contains(body, "<script>\n") || strings.Contains(body, "<script> ") {
-		t.Error("index.html still contains an inline <script> block; CSP would block it")
+		t.Error("classic index.html still contains an inline <script> block; CSP would block it")
 	}
 }
 
@@ -83,7 +84,7 @@ func TestIndexReferencesExternalScript(t *testing.T) {
 func TestAppScriptServed(t *testing.T) {
 	p := newTestPanel()
 	rec := httptest.NewRecorder()
-	p.ServeHTTP(rec, httptest.NewRequest("GET", "/panel/app.js", nil))
+	p.ServeHTTP(rec, httptest.NewRequest("GET", "/panel/classic/app.js", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("code=%d want 200", rec.Code)
 	}

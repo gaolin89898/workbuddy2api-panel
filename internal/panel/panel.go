@@ -11,7 +11,12 @@
 package panel
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -27,6 +32,8 @@ import (
 	"github.com/linguo2625469/workbuddy2api-panel/internal/desktop"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/httpauth"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/livecfg"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/loomy"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/minimax"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/pool"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/qoder"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/reqlog"
@@ -38,29 +45,40 @@ import (
 
 // Config 面板依赖（main 装配注入）。
 type Config struct {
-	AccountsOnly bool // Restrict the UI and HTTP routes to account management and check-in.
+	// AccountsOnly 仅账号管理模式：UI 限制为账号管理 + 签到，网关能力路由
+	// （模型/用量/请求日志/补偿等）不注册，/panel/api/config 保持签到设置形态。
+	AccountsOnly bool
 	Trae         *trae.Store
 	Qoder        *qoder.Store
+	Minimax      *minimax.Store
+	Loomy        *loomy.Store
 	Pool         *pool.Pool
 	Upstream     *upstream.Client
 	Scheduler    *scheduler.Scheduler // 手动触发签到/保活；nil 时对应接口返回 501
 	AuthDir      string               // OAuth 登录完成后凭证落盘目录
 	DesktopDir   string               // Private native-client login snapshots and rollback backups.
 	APIKey       string               // 空 = 不鉴权（与主服务同语义）；与 Live 同时给出时 Live 优先
+	PanelUser    string               // 面板账号密码登录用户名；与 PanelPass 同时非空才启用
+	PanelPass    string               // 面板账号密码登录密码（config.json panel_username / panel_password）
 	RedisMode    string               // "upstash" / "noop"，仅观测透出
 	Version      string               // 面板版本号（展示用）
 
 	// Live 运行期可变配置（在线改配置立即生效）。
 	Live *livecfg.Holder
 
-	// ConfigPath config.json 路径与加载器（配置页读写用）。
+	// ConfigPath config.json 路径与加载器（网关设置页读写用）。
 	// LoadConfig 返回解析后的配置对象（前端展示/校验用，具体类型由 main 注入的闭包决定）；
-	// nil 时配置页返回 501。
+	// nil 时网关设置接口返回 501。
 	ConfigPath string
 	LoadConfig func() (any, error)
-	// SaveConfig 校验并落盘配置，返回需要重启才能生效的字段列表；随后由 main 注入的
-	// ApplyConfig 闭包完成热生效（池参数/排程/密钥/脱敏）。error 时配置不写盘。
+	// SaveConfig 校验并落盘网关配置（config.json），返回需要重启才能生效的字段列表；
+	// error 时配置不写盘。
 	SaveConfig func(raw []byte) (restartRequired []string, err error)
+
+	// LoadCheckin / SaveCheckin 签到设置（account-settings.json）读写闭包，统一设置
+	// 接口 /panel/api/settings/checkin 使用；nil 时对应接口返回 501。
+	LoadCheckin func() (any, error)
+	SaveCheckin func(raw []byte) error
 
 	// StickyCount 返回粘性会话绑定数；nil 时报告 0。
 	StickyCount func() int
@@ -82,13 +100,18 @@ type Config struct {
 // Panel 管理面板 handler。挂载方式：外层 mux Handle("/panel/", panel)，
 // 本 mux 的 pattern 均带 /panel 前缀（外层不做前缀剥离）。
 type Panel struct {
-	cfg        Config
-	mux        *http.ServeMux
-	started    time.Time
-	logs       *Ring
-	traeLogin  *traeLoginManager
-	qoderLogin *qoderLoginManager
-	desktop    *desktop.Manager
+	cfg          Config
+	mux          *http.ServeMux
+	started      time.Time
+	logs         *Ring
+	traeLogin    *traeLoginManager
+	qoderLogin   *qoderLoginManager
+	minimaxLogin *minimaxLoginManager
+	desktop      *desktop.Manager
+
+	// authMu/sessions 面板登录会话（token → 过期时刻），内存态：重启后需重新登录。
+	authMu   sync.Mutex
+	sessions map[string]time.Time
 
 	// logins 进行中的 OAuth 设备授权会话（state → 会话信息）。
 	// poll 成功或超时（loginTTL）后剔除；面板常驻进程，容量天然有界。
@@ -151,14 +174,16 @@ func New(cfg Config) *Panel {
 		cfg.RedisMode = "noop"
 	}
 	p := &Panel{
-		cfg:        cfg,
-		mux:        http.NewServeMux(),
-		started:    time.Now(),
-		logs:       NewRing(500),
-		logins:     map[string]loginSession{},
-		traeLogin:  newTraeLoginManager(),
-		qoderLogin: newQoderLoginManager(),
-		desktop:    desktop.New(cfg.DesktopDir),
+		cfg:          cfg,
+		mux:          http.NewServeMux(),
+		started:      time.Now(),
+		logs:         NewRing(500),
+		logins:       map[string]loginSession{},
+		sessions:     map[string]time.Time{},
+		traeLogin:    newTraeLoginManager(),
+		qoderLogin:   newQoderLoginManager(),
+		minimaxLogin: newMinimaxLoginManager(),
+		desktop:      desktop.New(cfg.DesktopDir),
 	}
 	if cfg.Qoder != nil {
 		cfg.Qoder.SetDesktopSource(func() *qoder.Account {
@@ -177,55 +202,60 @@ func New(cfg Config) *Panel {
 func (p *Panel) Logs() *Ring { return p.logs }
 
 func (p *Panel) routes() {
-	if p.cfg.AccountsOnly {
-		p.accountRoutes()
-		return
-	}
-	p.mux.HandleFunc("GET /panel/{$}", p.index)
-	p.mux.HandleFunc("GET /panel/app.js", p.appScript)
-	p.mux.HandleFunc("GET /panel/mobile.css", p.mobileStyle)
-	p.mux.HandleFunc("GET /panel/mobile.js", p.mobileScript)
+	// 统一路由：五平台账号管理、桌面客户端、任务/奖励等能力两种模式始终注册；
+	// 网关专属路由（模型/用量/请求日志/补偿等）仅网关模式注册。
+	// 静态页面：/panel/ 统一 Vue（账号端），网关模式另挂经典控制台 /panel/classic/。
+	p.authRoutes()
+	p.traeRoutes()
+	p.qoderRoutes()
+	p.minimaxRoutes()
+	p.loomyRoutes()
+	p.desktopRoutes()
+	p.benefitRoutes()
+	p.vueRoutes()
 	p.mux.HandleFunc("GET /panel/api/overview", p.withAuth(p.overview))
 	p.mux.HandleFunc("GET /panel/api/logs", p.withAuth(p.logsHandler))
-	p.mux.HandleFunc("GET /panel/api/request_metrics", p.withAuth(p.requestMetrics))
-	p.mux.HandleFunc("GET /panel/api/request_logs", p.withAuth(p.requestLogs))
-	p.mux.HandleFunc("GET /panel/api/credit_history", p.withAuth(p.creditHistory))
-	p.mux.HandleFunc("GET /panel/api/models", p.withAuth(p.models))
+	p.mux.HandleFunc("GET /panel/api/config", p.withAuth(p.getConfig))
+	p.mux.HandleFunc("POST /panel/api/config", p.withAuth(p.saveConfig))
+	// 统一设置与能力发现（新接口；旧 /panel/api/config 保留兼容适配）。
+	p.mux.HandleFunc("GET /panel/api/settings/checkin", p.withAuth(p.getCheckinSettings))
+	p.mux.HandleFunc("POST /panel/api/settings/checkin", p.withAuth(p.saveCheckinSettings))
+	p.mux.HandleFunc("GET /panel/api/settings/gateway", p.withAuth(p.getGatewaySettings))
+	p.mux.HandleFunc("POST /panel/api/settings/gateway", p.withAuth(p.saveGatewaySettings))
+	p.mux.HandleFunc("GET /panel/api/capabilities", p.withAuth(p.capabilities))
+	// 调度状态：各任务族最近一次执行时刻（定时任务页「上次运行」列）。
+	p.mux.HandleFunc("GET /panel/api/schedules/status", p.withAuth(p.schedulesStatus))
 	p.mux.HandleFunc("POST /panel/api/login/start", p.withAuth(p.loginStart))
 	p.mux.HandleFunc("GET /panel/api/login/poll", p.withAuth(p.loginPoll))
-	p.mux.HandleFunc("GET /panel/api/login/regions", p.withAuth(p.loginRegions))
 	p.mux.HandleFunc("POST /panel/api/import/cockpit", p.withAuth(p.importCockpit))
 	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/revive", p.withAuth(p.accountRevive))
 	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/disable", p.withAuth(p.accountDisable))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/pause", p.withAuth(p.accountPause))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/resume", p.withAuth(p.accountResume))
+	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/remove", p.withAuth(p.accountRemove))
 	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/checkin", p.withAuth(p.accountCheckin))
 	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/balance", p.withAuth(p.accountBalance))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/remove", p.withAuth(p.accountRemove))
-	p.mux.HandleFunc("GET /panel/api/accounts/{uid}/tasks", p.withAuth(p.accountTasks))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/tasks/accept", p.withAuth(p.accountTaskAccept))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/tasks/accept_all", p.withAuth(p.taskAcceptAll))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/tasks/claim", p.withAuth(p.accountTaskClaim))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/tasks/auto", p.withAuth(p.accountTaskAuto))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/tasks/auto_all", p.withAuth(p.accountTaskAutoAll))
-	p.mux.HandleFunc("POST /panel/api/tasks/scan_all", p.withAuth(p.tasksScanAll))
-	p.mux.HandleFunc("POST /panel/api/tasks/run_queue", p.withAuth(p.tasksRunQueue))
-	p.mux.HandleFunc("GET /panel/api/tasks/queue", p.withAuth(p.tasksQueueStatus))
-	p.mux.HandleFunc("GET /panel/api/school/vouchers", p.withAuth(p.schoolVouchers))
 	p.mux.HandleFunc("POST /panel/api/checkin_all", p.withAuth(p.checkinAll))
-	p.mux.HandleFunc("POST /panel/api/travel_all", p.withAuth(p.travelAll))
-	p.mux.HandleFunc("POST /panel/api/activity_all", p.withAuth(p.activityAll))
-	p.mux.HandleFunc("POST /panel/api/keepalive_all", p.withAuth(p.keepaliveAll))
 	p.mux.HandleFunc("POST /panel/api/balance_all", p.withAuth(p.balanceAll))
-	p.mux.HandleFunc("GET /panel/api/packages", p.withAuth(p.packages))
-	p.mux.HandleFunc("GET /panel/api/usage", p.withAuth(p.usage))
-	p.mux.HandleFunc("POST /panel/api/usage/save", p.withAuth(p.usageSave))
-	p.mux.HandleFunc("GET /panel/api/model_probes", p.withAuth(p.modelProbes))
-	p.mux.HandleFunc("GET /panel/api/config", p.withAuth(p.getConfig))
-	p.mux.HandleFunc("POST /panel/api/config", p.withAuth(p.saveConfig))
-	p.mux.HandleFunc("GET /panel/api/compensation", p.withAuth(p.compensation))
-	p.mux.HandleFunc("POST /panel/api/accounts/{uid}/compensation", p.withAuth(p.accountCompensationClaim))
-	p.mux.HandleFunc("POST /panel/api/compensation_all", p.withAuth(p.compensationAll))
+	if !p.cfg.AccountsOnly {
+		p.classicRoutes()
+		p.mux.HandleFunc("GET /panel/api/request_metrics", p.withAuth(p.requestMetrics))
+		p.mux.HandleFunc("GET /panel/api/request_logs", p.withAuth(p.requestLogs))
+		p.mux.HandleFunc("GET /panel/api/models", p.withAuth(p.models))
+		p.mux.HandleFunc("GET /panel/api/login/regions", p.withAuth(p.loginRegions))
+		p.mux.HandleFunc("POST /panel/api/accounts/{uid}/pause", p.withAuth(p.accountPause))
+		p.mux.HandleFunc("POST /panel/api/accounts/{uid}/resume", p.withAuth(p.accountResume))
+		p.mux.HandleFunc("POST /panel/api/accounts/{uid}/tasks/accept_all", p.withAuth(p.taskAcceptAll))
+		p.mux.HandleFunc("POST /panel/api/accounts/{uid}/tasks/auto_all", p.withAuth(p.accountTaskAutoAll))
+		p.mux.HandleFunc("GET /panel/api/school/vouchers", p.withAuth(p.schoolVouchers))
+		p.mux.HandleFunc("POST /panel/api/travel_all", p.withAuth(p.travelAll))
+		p.mux.HandleFunc("POST /panel/api/activity_all", p.withAuth(p.activityAll))
+		p.mux.HandleFunc("POST /panel/api/keepalive_all", p.withAuth(p.keepaliveAll))
+		p.mux.HandleFunc("GET /panel/api/usage", p.withAuth(p.usage))
+		p.mux.HandleFunc("POST /panel/api/usage/save", p.withAuth(p.usageSave))
+		p.mux.HandleFunc("GET /panel/api/model_probes", p.withAuth(p.modelProbes))
+		p.mux.HandleFunc("GET /panel/api/compensation", p.withAuth(p.compensation))
+		p.mux.HandleFunc("POST /panel/api/accounts/{uid}/compensation", p.withAuth(p.accountCompensationClaim))
+		p.mux.HandleFunc("POST /panel/api/compensation_all", p.withAuth(p.compensationAll))
+	}
 }
 
 // ServeHTTP 统一入口：先写安全响应头再分发，保证页面、静态资源、API
@@ -236,16 +266,110 @@ func (p *Panel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // withAuth 与 server 包同口径的 Bearer 鉴权（经 httpauth 常量时间比较）；
-// api_key 为空时放行。密钥经 livecfg 快照读取：面板里改了 api_key，下一个请求
-// 即用新值（无需重启）。
+// 接受 api_key 或面板登录会话令牌。api_key 经 livecfg 快照读取：面板里改了
+// api_key，下一个请求即用新值（无需重启）。
+// Bearer 仅在 api_key 非空时参与校验：VerifyBearer 对空 key 恒真（上游 API 的
+// 「未启用鉴权」语义），若不加区分地短路放行，仅配置面板密码（api_key 为空）
+// 的部署会被匿名请求绕过。
 func (p *Panel) withAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !httpauth.VerifyBearer(r, p.apiKey()) {
+		if !p.panelAuthEnabled() {
+			next(w, r)
+			return
+		}
+		if !p.sessionValid(r) && !(p.apiKey() != "" && httpauth.VerifyBearer(r, p.apiKey())) {
 			writeErr(w, http.StatusUnauthorized, "invalid_api_key")
 			return
 		}
 		next(w, r)
 	}
+}
+
+// panelAuthEnabled 面板鉴权是否生效：api_key 非空（旧语义），或账号密码登录
+// 已配置（panel_username / panel_password）。两者皆空 = 完全不鉴权（既有语义）。
+func (p *Panel) panelAuthEnabled() bool {
+	return p.apiKey() != "" || (p.cfg.PanelUser != "" && p.cfg.PanelPass != "")
+}
+
+// panelLoginTTL 登录会话有效期；到期后前端 401 重新弹出登录框。
+const panelLoginTTL = 7 * 24 * time.Hour
+
+// authRoutes 注册面板登录（两个模式共用；登录页本身公开）。
+func (p *Panel) authRoutes() {
+	p.mux.HandleFunc("POST /panel/api/auth/login", p.authLogin)
+}
+
+func (p *Panel) authLogin(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 8<<10)
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if dec.Decode(&input) != nil || dec.Decode(new(any)) != io.EOF {
+		writeErr(w, 400, "登录表单格式无效")
+		return
+	}
+	if p.cfg.PanelUser == "" || p.cfg.PanelPass == "" {
+		// 仅密钥模式（未配置面板密码）：允许把 api_key 当作密码换取登录会话，
+		// 让只有账号密码表单的页面也能登录 api_key 部署；凭证强度等价于直用密钥。
+		if key := p.apiKey(); key != "" && input.Password != "" && constTimeEqual(input.Password, key) {
+			p.issueSession(w, r)
+			return
+		}
+		writeErr(w, 400, "面板账号密码登录未启用，请使用管理密钥作为密码登录")
+		return
+	}
+	userOK := constTimeEqual(input.Username, p.cfg.PanelUser)
+	passOK := constTimeEqual(input.Password, p.cfg.PanelPass)
+	if !userOK || !passOK {
+		log.Printf("panel: 登录失败（用户名或密码不正确）")
+		time.Sleep(300 * time.Millisecond) // 简单防爆破：本机工具足够
+		writeErr(w, 401, "用户名或密码不正确")
+		return
+	}
+	p.issueSession(w, r)
+}
+
+// issueSession 签发 7 天登录会话并清理过期令牌（账号密码与密钥直登共用）。
+func (p *Panel) issueSession(w http.ResponseWriter, r *http.Request) {
+	var raw [32]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		writeErr(w, 500, "无法创建登录会话")
+		return
+	}
+	token := hex.EncodeToString(raw[:])
+	expiry := time.Now().Add(panelLoginTTL)
+	p.authMu.Lock()
+	now := time.Now()
+	for t, exp := range p.sessions {
+		if now.After(exp) {
+			delete(p.sessions, t)
+		}
+	}
+	p.sessions[token] = expiry
+	p.authMu.Unlock()
+	log.Printf("panel: 登录成功（会话有效期 7 天）")
+	writeJSON(w, 200, map[string]any{"ok": true, "token": token, "expires_at": expiry.Format(time.RFC3339)})
+}
+
+// sessionValid 校验 Bearer 令牌是否为未过期的登录会话。
+func (p *Panel) sessionValid(r *http.Request) bool {
+	authz := r.Header.Get("Authorization")
+	if !strings.HasPrefix(authz, "Bearer ") {
+		return false
+	}
+	p.authMu.Lock()
+	defer p.authMu.Unlock()
+	exp, ok := p.sessions[strings.TrimPrefix(authz, "Bearer ")]
+	return ok && time.Now().Before(exp)
+}
+
+// constTimeEqual 摘要后常量时间比较，避免长度/前缀侧信道。
+func constTimeEqual(a, b string) bool {
+	da, db := sha256.Sum256([]byte(a)), sha256.Sum256([]byte(b))
+	return subtle.ConstantTimeCompare(da[:], db[:]) == 1
 }
 
 // apiKey 当前生效密钥（Live 优先，回落静态字段）。
@@ -291,20 +415,22 @@ func (p *Panel) overview(w http.ResponseWriter, r *http.Request) {
 		sticky = p.cfg.StickyCount()
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"version":         p.cfg.Version,
-		"uptime_sec":      int(time.Since(p.started).Seconds()),
-		"auth_required":   p.apiKey() != "",
-		"redis_mode":      p.cfg.RedisMode,
-		"sticky_sessions": sticky,
-		"total":           total,
-		"healthy":         healthy,
-		"cooling":         cooling,
-		"disabled":        disabled,
-		"paused":          paused,
-		"in_flight_full":  inFlightFull,
-		"accounts":        p.benefitAccountStatuses(),
-		"trae_accounts":   p.traeAccounts(),
-		"qoder_accounts":  p.qoderAccounts(),
+		"version":          p.cfg.Version,
+		"uptime_sec":       int(time.Since(p.started).Seconds()),
+		"auth_required":    p.apiKey() != "",
+		"redis_mode":       p.cfg.RedisMode,
+		"sticky_sessions":  sticky,
+		"total":            total,
+		"healthy":          healthy,
+		"cooling":          cooling,
+		"disabled":         disabled,
+		"paused":           paused,
+		"in_flight_full":   inFlightFull,
+		"accounts":         p.benefitAccountStatuses(),
+		"trae_accounts":    p.traeAccounts(),
+		"qoder_accounts":   p.qoderAccounts(),
+		"minimax_accounts": p.minimaxAccounts(),
+		"loomy_accounts":   p.loomyAccounts(),
 		// model_locks 模型级限流全清单（哪些模型不能用、锁了几个号、还要锁多久）：
 		// 与 accounts 的账号池视图互补，前端「模型锁池」表直接渲染。无锁时为 null。
 		"model_locks": p.cfg.Pool.ModelLockView(),
@@ -770,12 +896,17 @@ func (p *Panel) accountRemove(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 // checkinAll 手动触发全量签到（异步执行，进度看日志区/账号状态变化）。
+// 与自动排程共用同一执行入口：WorkBuddy 池签到 + CheckinHook（Trae / MiniMax /
+// Loomy 旁路签到）；Qoder 活动轮次由独立的 qoder 排程与补签路径负责。
 func (p *Panel) checkinAll(w http.ResponseWriter, r *http.Request) {
 	if p.cfg.Scheduler == nil {
 		writeErr(w, http.StatusNotImplemented, "scheduler not available")
 		return
 	}
-	go p.cfg.Scheduler.RunCheckinNow()
+	go func() {
+		p.cfg.Scheduler.RunCheckinNow()
+		p.cfg.Scheduler.RunCheckinHook()
+	}()
 	log.Printf("panel: 手动全量签到已触发")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "started": true})
 }

@@ -18,10 +18,11 @@ export function clockTime(value) {
 export function formatHour(hour) { return String(hour).padStart(2, '0') + ':00'; }
 export function formatNumber(value) { return Number(value || 0).toLocaleString('zh-CN'); }
 export function canCheckin(account) { return !account.disabled && !account.enterprise && account.realm !== 'global' && account.checkin_supported !== false; }
-export function accountEdition(account) { return account.provider === 'qoder' ? 'Qoder 国内版' : account.provider === 'trae' ? 'Trae 国内版' : account.enterprise ? '企业版' : account.realm === 'global' ? '国际版' : '国内版'; }
+export function accountEdition(account) { return account.provider === 'minimax' ? 'MiniMax 国内版' : account.provider === 'qoder' ? 'Qoder 国内版' : account.provider === 'trae' ? 'Trae 国内版' : account.provider === 'loomy' ? 'Loomy 国内版' : account.enterprise ? '企业版' : account.realm === 'global' ? '国际版' : '国内版'; }
 export function accountCredits(account) { return account.balance_known === false ? '--' : formatNumber(account.credits); }
 export function checkinState(account) {
   if (account.provider === 'qoder') return account.checkin_done ? { text: '本轮已领取', kind: 'success' } : account.disabled ? { text: '已暂停', kind: 'muted' } : { text: '本轮待领取', kind: 'warning' };
+  if (account.provider === 'loomy') return account.checkin_done ? { text: '今日已结算', kind: 'success' } : account.disabled ? { text: '已暂停', kind: 'muted' } : { text: '待结算', kind: 'warning' };
   if (account.enterprise || account.realm === 'global' || account.checkin_supported === false) return { text: '不支持签到', kind: 'muted' };
   if (account.checkin_done) return { text: '已签到', kind: 'success' };
   if (account.disabled) return { text: '已暂停', kind: 'muted' };
@@ -29,21 +30,23 @@ export function checkinState(account) {
 }
 
 export function useAccounts() {
-  const workbuddyAccounts = ref([]), traeAccounts = ref([]), qoderAccounts = ref([]), allLogs = ref([]), overview = ref({});
-  const provider = ref(['trae', 'qoder'].includes(localStorage.getItem('wb.accounts.provider')) ? localStorage.getItem('wb.accounts.provider') : 'workbuddy');
-  const providerName = computed(() => ({ trae: 'Trae', qoder: 'Qoder', workbuddy: 'WorkBuddy' })[provider.value]);
-  const accounts = computed(() => ({ trae: traeAccounts.value, qoder: qoderAccounts.value, workbuddy: workbuddyAccounts.value })[provider.value]);
-  const logs = computed(() => allLogs.value.filter(e => provider.value === 'workbuddy' ? !/^(trae|qoder):/.test(e.text) : e.text.startsWith(provider.value + ':')));
-  const apiPrefix = value => value === 'trae' || value === 'qoder' ? value + '/' : '';
+  const workbuddyAccounts = ref([]), traeAccounts = ref([]), qoderAccounts = ref([]), minimaxAccounts = ref([]), loomyAccounts = ref([]), allLogs = ref([]), overview = ref({});
+  const provider = ref(['trae', 'qoder', 'minimax', 'loomy'].includes(localStorage.getItem('wb.accounts.provider')) ? localStorage.getItem('wb.accounts.provider') : 'workbuddy');
+  const providerName = computed(() => ({ trae: 'Trae', qoder: 'Qoder', minimax: 'MiniMax', loomy: 'Loomy', workbuddy: 'WorkBuddy' })[provider.value]);
+  const accounts = computed(() => ({ trae: traeAccounts.value, qoder: qoderAccounts.value, minimax: minimaxAccounts.value, loomy: loomyAccounts.value, workbuddy: workbuddyAccounts.value })[provider.value]);
+  const logs = computed(() => allLogs.value.filter(e => provider.value === 'workbuddy' ? !/^(trae|qoder|minimax|loomy):/.test(e.text) : e.text.startsWith(provider.value + ':')));
+  const apiPrefix = value => ['trae', 'qoder', 'minimax', 'loomy'].includes(value) ? value + '/' : '';
   const effectiveHours = computed(() => [...new Set((schedule.value?.checkin_hours || []).map(h => provider.value === 'qoder' ? Math.max(10, h) : h))].sort((a, b) => a - b));
   const schedule = ref(null), connected = ref(false), loading = ref(true), error = ref('');
   const desktopClients = ref([]), desktopJob = ref(null), desktopError = ref('');
   const pendingDesktopSwitch = ref(null);
+  const capabilities = ref(null);
   let desktopNotice = '';
   let desktopStatusVersion = 0;
   const desktopBusy = computed(() => !!pendingDesktopSwitch.value || !!desktopJob.value && !desktopJob.value.done || busy.has('desktop-switch') || busy.has('desktop-capture'));
   function desktopClient(account) {
     const selected = account?.provider || provider.value;
+    if (selected === 'minimax' || selected === 'loomy') return null; // MiniMax / Loomy 暂无本机客户端切换
     const id = ['trae', 'qoder'].includes(selected) ? selected : account?.realm === 'global' ? 'workbuddy-global' : 'workbuddy';
     return desktopClients.value.find(c => c.id === id);
   }
@@ -110,6 +113,10 @@ export function useAccounts() {
   const traeLogin = reactive({ state: '', status: '', error: '', waiting: false, available: null, message: '' });
   const qoderLogin = reactive({ state: '', url: '', error: '', waiting: false });
   const qoderDraft = reactive({ token: '', nickname: '', uid: '' });
+  const minimaxDraft = reactive({ credential: '', nickname: '', uid: '', auth_kind: '' });
+  const minimaxLogin = reactive({ state: '', url: '', userCode: '', error: '', waiting: false, interval: 3000 });
+  const loomyDraft = reactive({ credential: '', nickname: '', uid: '', account_uid: '' });
+  let minimaxTimer, minimaxAttempt = 0;
   let qoderTimer, qoderAttempt = 0;
   const login = reactive({ state: '', url: '', status: '', error: '', waiting: false });
   const importFile = ref(null), importResult = ref(null), updatedAt = ref(null), savedAt = ref(null);
@@ -126,22 +133,28 @@ export function useAccounts() {
 
   const accountName = account => remarks.value[account.uid] || account.nickname || account.uid;
   function selectProvider(value) {
-    provider.value = ['trae', 'qoder'].includes(value) ? value : 'workbuddy';
+    provider.value = ['trae', 'qoder', 'minimax', 'loomy'].includes(value) ? value : 'workbuddy';
     localStorage.setItem('wb.accounts.provider', provider.value);
   }
   const eligible = computed(() => accounts.value.filter(canCheckin));
   const signed = computed(() => eligible.value.filter(a => a.checkin_done));
   const pending = computed(() => eligible.value.filter(a => !a.checkin_done));
+  // 全平台统一视图：供运行日志、签到设置、活动奖励等不区分平台的页面使用。
+  const allAccounts = computed(() => [...workbuddyAccounts.value, ...traeAccounts.value, ...qoderAccounts.value, ...minimaxAccounts.value, ...loomyAccounts.value]);
+  const allEligible = computed(() => allAccounts.value.filter(canCheckin));
+  const allSigned = computed(() => allEligible.value.filter(a => a.checkin_done));
+  const allPending = computed(() => allEligible.value.filter(a => !a.checkin_done));
   const credits = computed(() => accounts.value.reduce((sum, a) => sum + Number(a.credits || 0), 0));
   const totalCredits = computed(() => accounts.value.reduce((sum, a) => sum + Number(a.credits_total || 0), 0));
   const unknownBalances = computed(() => accounts.value.filter(a => a.balance_known === false).length);
   const todayLogs = computed(() => logs.value.filter(e => chinaDate(e.ts) === chinaDate(now.value)));
+  const allTodayLogs = computed(() => allLogs.value.filter(e => chinaDate(e.ts) === chinaDate(now.value)));
   const recentActivity = computed(() => logs.value.filter(e => e.ch === 'task').slice(-3).reverse());
-  const nextRun = computed(() => {
+  const nextRunFor = hours => {
     if (!schedule.value?.checkin_enabled || !schedule.value.checkin_hours?.length) return null;
     const china = new Date(now.value + 8 * 3600000);
     const day = Date.UTC(china.getUTCFullYear(), china.getUTCMonth(), china.getUTCDate()) - 8 * 3600000;
-    const next = Math.min(...effectiveHours.value.map(h => {
+    const next = Math.min(...hours.map(h => {
       const value = day + h * 3600000;
       return value > now.value ? value : value + 86400000;
     }));
@@ -153,7 +166,10 @@ export function useAccounts() {
       date: new Date(next).toLocaleDateString('zh-CN', { timeZone: ZONE, year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }),
       remaining: minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : `${minutes} 分钟`,
     };
-  });
+  };
+  const nextRun = computed(() => nextRunFor(effectiveHours.value));
+  // 统一视图的下次签到：不按 Qoder 顺延，即所有平台中最早的可签到时刻。
+  const allNextRun = computed(() => nextRunFor([...new Set(schedule.value?.checkin_hours || [])].sort((a, b) => a - b)));
   const expiryEntries = computed(() => accounts.value.flatMap(account =>
     (account.credits_expiry_buckets || []).map(bucket => ({ ...bucket, uid: account.uid, name: accountName(account) }))
   ).filter(b => Number(b.remain) > 0 && new Date(b.expires_at || b.date).getTime() > now.value)
@@ -184,6 +200,8 @@ export function useAccounts() {
       workbuddyAccounts.value = data.accounts || [];
       traeAccounts.value = data.trae_accounts || [];
       qoderAccounts.value = data.qoder_accounts || [];
+      minimaxAccounts.value = data.minimax_accounts || [];
+      loomyAccounts.value = data.loomy_accounts || [];
       overview.value = data;
       connected.value = true;
       error.value = '';
@@ -195,13 +213,27 @@ export function useAccounts() {
     }).finally(() => { loading.value = false; overviewFlight = null; });
     return overviewFlight;
   }
-  async function refreshSettings() { const data = await api('config'); schedule.value = data.config; }
+  async function refreshSettings() { const data = await api('settings/checkin'); schedule.value = data.settings; }
+  async function refreshCapabilities() {
+    try { capabilities.value = await api('capabilities'); } catch { /* 连接横幅统一报错；能力缺失按最低集渲染。 */ }
+  }
   async function refreshLogs() { const data = await api('logs'); allLogs.value = data.entries || []; }
   async function connect(key) {
     await action('connect', async () => {
       if (key !== undefined) localStorage.setItem(KEY_STORAGE, key.trim());
       await refreshOverview();
-      await Promise.all([refreshSettings(), refreshLogs(), refreshDesktop()]);
+      await Promise.all([refreshSettings(), refreshLogs(), refreshDesktop(), refreshCapabilities()]);
+      needsKey.value = false;
+    });
+  }
+  // panelLogin 面板账号密码登录：POST auth/login 换会话令牌，存入与密钥相同的
+  // 本地槽位（后端同时接受 api_key 与会话令牌），随后建立全部数据连接。
+  async function panelLogin(username, password) {
+    return action('connect', async () => {
+      const data = await api('auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+      localStorage.setItem(KEY_STORAGE, data.token);
+      await refreshOverview();
+      await Promise.all([refreshSettings(), refreshLogs(), refreshDesktop(), refreshCapabilities()]);
       needsKey.value = false;
     });
   }
@@ -229,7 +261,7 @@ export function useAccounts() {
       if (type === 'checkin' && !result.checkin_done) throw new Error(result.checkin_message || '签到未完成');
       if (result.file_error) Message.warning('账号已移除，但本地凭证文件删除失败：' + result.file_error);
       else if (result.balance_error) Message.warning('签到成功，但积分刷新失败：' + result.balance_error);
-      else Message.success({ checkin: '签到成功', balance: '积分已刷新', disable: '账号已停用', revive: '账号已启用', remove: '账号已移除' }[type]);
+      else Message.success({ checkin: '签到成功', balance: '积分已刷新', disable: '账号已停用', revive: '账号已启用', pause: '已暂停选号（保号任务照常）', resume: '已恢复参与选号', remove: '账号已移除' }[type]);
       await refreshOverview();
       await refreshLogs();
     });
@@ -241,7 +273,7 @@ export function useAccounts() {
   }
   async function saveSchedule(next) {
     return action('schedule', async () => {
-      await api('config', { method: 'POST', body: JSON.stringify(next) });
+      await api('settings/checkin', { method: 'POST', body: JSON.stringify(next) });
       schedule.value = { ...schedule.value, ...next };
       savedAt.value = Date.now();
       Message.success('签到设置已保存');
@@ -255,6 +287,7 @@ export function useAccounts() {
     Object.assign(login, { state: '', url: '', status: '', error: '', waiting: false });
     stopTraeLogin();
     stopQoderLogin();
+    stopMiniMaxLogin();
   }
   function stopTraeLogin() {
     ++traeLoginAttempt;
@@ -326,11 +359,14 @@ export function useAccounts() {
 	traeExpectedUID.value = '';
     Object.assign(traeDraft, { nickname: '', session: '', token: '', device_id: '' });
     Object.assign(qoderDraft, { token: '', nickname: '', uid: '' });
+    Object.assign(minimaxDraft, { credential: '', nickname: '', uid: '', auth_kind: '' });
+    Object.assign(minimaxLogin, { state: '', url: '', userCode: '', error: '', waiting: false, interval: 3000 });
+    Object.assign(loomyDraft, { credential: '', nickname: '', uid: '', account_uid: '' });
     importFile.value = null;
     importResult.value = null;
     addVisible.value = true;
   }
-  function closeAdd() { stopLogin(); addVisible.value = false; Object.assign(traeDraft, { nickname: '', session: '', token: '', device_id: '' }); Object.assign(qoderDraft, { token: '', nickname: '', uid: '' }); }
+  function closeAdd() { stopLogin(); addVisible.value = false; Object.assign(traeDraft, { nickname: '', session: '', token: '', device_id: '' }); Object.assign(qoderDraft, { token: '', nickname: '', uid: '' }); Object.assign(minimaxDraft, { credential: '', nickname: '', uid: '', auth_kind: '' }); Object.assign(loomyDraft, { credential: '', nickname: '', uid: '', account_uid: '' }); }
   function stopQoderLogin() {
     ++qoderAttempt;
     clearTimeout(qoderTimer);
@@ -349,6 +385,83 @@ export function useAccounts() {
       if (result.warnings?.length) Message.warning(result.warnings.join('；'));
       await refreshOverview();
     });
+  }
+  function updateMiniMax(account) {
+    openAdd(); addProvider.value = 'minimax';
+    minimaxDraft.uid = account.uid; minimaxDraft.nickname = account.nickname || ''; minimaxDraft.auth_kind = account.auth_kind || '';
+  }
+  async function addMiniMax() {
+    return action('minimax-add', async () => {
+      const result = await api('minimax/accounts', { method: 'POST', body: JSON.stringify(minimaxDraft) });
+      closeAdd(); selectProvider('minimax'); Message.success('MiniMax 账号已添加或更新');
+      if (result.warnings?.length) Message.warning(result.warnings.join('；'));
+      await refreshOverview();
+      await refreshLogs();
+    });
+  }
+  function stopMiniMaxLogin() {
+    ++minimaxAttempt;
+    clearTimeout(minimaxTimer);
+    const state = minimaxLogin.state;
+    Object.assign(minimaxLogin, { state: '', url: '', userCode: '', error: '', waiting: false, interval: 3000 });
+    if (state) api('minimax/login/cancel?state=' + encodeURIComponent(state), { method: 'POST', keepalive: true, signal: undefined }).catch(() => {});
+  }
+  function updateLoomy(account) {
+    openAdd(); addProvider.value = 'loomy';
+    loomyDraft.uid = account.uid; loomyDraft.nickname = account.nickname || ''; loomyDraft.account_uid = account.account_uid || '';
+  }
+  async function addLoomy() {
+    return action('loomy-add', async () => {
+      const result = await api('loomy/accounts', { method: 'POST', body: JSON.stringify(loomyDraft) });
+      closeAdd(); selectProvider('loomy'); Message.success('Loomy 账号已添加或更新');
+      if (result.warnings?.length) Message.warning(result.warnings.join('；'));
+      await refreshOverview();
+      await refreshLogs();
+    });
+  }
+  async function importLoomyLocal() {
+    return action('loomy-import', async () => {
+      const result = await api('loomy/local_import', { method: 'POST' });
+      closeAdd(); selectProvider('loomy'); Message.success('Loomy 本机会话已导入');
+      if (result.warnings?.length) Message.warning(result.warnings.join('；'));
+      await refreshOverview();
+      await refreshLogs();
+    });
+  }
+  async function startMiniMaxLogin() {
+    stopMiniMaxLogin();
+    const attempt = minimaxAttempt;
+    return action('minimax-login', async () => {
+      try {
+        const data = await api('minimax/login/start', { method: 'POST', body: JSON.stringify({ uid: minimaxDraft.uid }) });
+        if (attempt !== minimaxAttempt || !addVisible.value || addProvider.value !== 'minimax') {
+          api('minimax/login/cancel?state=' + encodeURIComponent(data.state), { method: 'POST' }).catch(() => {});
+          return;
+        }
+        const url = new URL(data.url);
+        if (url.protocol !== 'https:') throw new Error('MiniMax 授权地址无效');
+        Object.assign(minimaxLogin, { state: data.state, url: url.href, userCode: data.user_code || '', waiting: true, interval: Math.max(2000, (data.interval_sec || 3) * 1000), error: '' });
+        minimaxTimer = setTimeout(() => pollMiniMaxLogin(attempt), minimaxLogin.interval);
+      } catch (cause) { if (attempt === minimaxAttempt) minimaxLogin.error = cause.message; throw cause; }
+    });
+  }
+  async function pollMiniMaxLogin(attempt) {
+    if (attempt !== minimaxAttempt || !minimaxLogin.state || !addVisible.value) return;
+    try {
+      const result = await api('minimax/login/poll?state=' + encodeURIComponent(minimaxLogin.state));
+      if (attempt !== minimaxAttempt || !addVisible.value) return;
+      if (result.done) {
+        closeAdd(); selectProvider('minimax'); Message.success('MiniMax 授权成功，账号已保存');
+        if (result.warnings?.length) Message.warning(result.warnings.join('；'));
+        await refreshOverview(); await refreshLogs();
+      } else minimaxTimer = setTimeout(() => pollMiniMaxLogin(attempt), minimaxLogin.interval);
+    } catch (cause) {
+      if (attempt === minimaxAttempt) {
+        const state = minimaxLogin.state;
+        Object.assign(minimaxLogin, { waiting: false, error: cause.message });
+        if (state) api('minimax/login/cancel?state=' + encodeURIComponent(state), { method: 'POST' }).catch(() => {});
+      }
+    }
   }
   async function startQoderLogin() {
     stopQoderLogin(); const attempt = qoderAttempt;
@@ -468,15 +581,18 @@ export function useAccounts() {
   onBeforeUnmount(() => { stopLogin(); clearInterval(refreshTimer); clearInterval(clockTimer); abort.abort(); });
   return {
 	api,
-    accounts, logs, overview, schedule, connected, loading, error, needsKey, busy, now,
+    accounts, allLogs, logs, overview, schedule, connected, loading, error, needsKey, busy, now, capabilities,
     desktopClients, desktopJob, desktopError, desktopBusy, desktopClient, isCurrentDesktop, isSwitchingDesktop, switchReason, switchDesktop, captureDesktop,
     provider, providerName, selectProvider, workbuddyAccounts, traeAccounts, addProvider, traeDraft, traeExpectedUID, addTrae, importTrae, updateTrae,
     qoderAccounts, qoderLogin, qoderDraft, startQoderLogin, stopQoderLogin, addQoder, updateQoder, effectiveHours,
+    minimaxAccounts, minimaxDraft, addMiniMax, updateMiniMax, minimaxLogin, startMiniMaxLogin, stopMiniMaxLogin,
+    loomyAccounts, loomyDraft, addLoomy, importLoomyLocal, updateLoomy,
     traeLogin, checkTraeLoginAvailable, startTraeLogin, stopTraeLogin,
     remarks, accountName, eligible, signed, pending, credits, totalCredits, unknownBalances, todayLogs,
+    allAccounts, allEligible, allSigned, allPending, allTodayLogs, allNextRun,
     recentActivity, nextRun, expiryEntries, addVisible, addTab, realm, login,
     importFile, importResult, updatedAt, savedAt, connect, refreshOverview, refreshLogs,
     refreshBalances, checkinAll, accountAction, saveRemark, saveSchedule,
-    openAdd, closeAdd, startLogin, importAccounts, resetLogin: stopLogin,
+    openAdd, closeAdd, startLogin, importAccounts, resetLogin: stopLogin, panelLogin,
   };
 }

@@ -14,18 +14,19 @@ const loadedAt = ref(null), rulesView = ref(null);
 let version = 0, queueTimer;
 const abort = new AbortController();
 const api = (path, options = {}) => props.model.api(path, { ...options, signal: abort.signal });
-const personal = computed(() => props.model.accounts.filter(a => !a.disabled && !a.enterprise && a.realm !== 'global' && a.benefits_supported !== false));
-const unsupportedAccounts = computed(() => props.model.provider === 'workbuddy' ? props.model.accounts.filter(a => a.benefits_supported === false) : []);
+const supported = computed(() => props.model.provider === 'workbuddy');
+const personal = computed(() => supported.value ? props.model.workbuddyAccounts.filter(a => !a.disabled && !a.enterprise && a.realm !== 'global' && a.benefits_supported !== false) : []);
+const unsupportedAccounts = computed(() => supported.value ? props.model.workbuddyAccounts.filter(a => a.benefits_supported === false) : []);
 const options = personal;
 const account = computed(() => options.value.find(a => a.uid === uid.value));
-const supported = computed(() => props.model.provider === 'workbuddy');
+const workbuddyReady = computed(() => supported.value && props.model.workbuddyAccounts.length > 0);
 const completedTasks = computed(() => tasks.value.filter(t => t.claimed).length);
 const taskProgress = computed(() => tasks.value.length ? completedTasks.value / tasks.value.length : 0);
 const availableTiers = computed(() => (rewards.value?.streak?.redemption_status?.tiers || []).filter(canRedeem));
 const canCompensate = computed(() => rewards.value?.compensation?.active && !rewards.value.compensation.claimed && rewards.value.compensation.credit_num > 0);
 const claimCount = computed(() => availableTiers.value.length + Number(!!canCompensate.value));
 const rewardCredits = computed(() => availableTiers.value.reduce((sum, t) => sum + Number(t.credit || 0), 0) + (canCompensate.value ? Number(rewards.value.compensation.credit_num) : 0));
-const coverage = computed(() => props.model.accounts.map(a => ({ ...a, pendingTasks: scan.value?.accounts?.find(item => item.uid === a.uid) })));
+const coverage = computed(() => props.model.workbuddyAccounts.map(a => ({ ...a, pendingTasks: scan.value?.accounts?.find(item => item.uid === a.uid) })));
 const taskRows = computed(() => tasks.value.filter(t => (!search.value || (t.title + ' ' + t.task_code).toLowerCase().includes(search.value.toLowerCase())) && (filter.value === 'all' || filter.value === 'claimable' && t.claimable || filter.value === 'claimed' && t.claimed || filter.value === 'pending' && !t.claimed && !t.claimable || filter.value === 'error' && queue.value.items?.some(i => i.uid === uid.value && i.code === t.task_code && i.status === 'error'))));
 const done = computed(() => (queue.value.items || []).filter(i => ['done', 'skipped', 'error'].includes(i.status)).length);
 const statusName = value => ({ pending: '等待执行', running: '执行中', done: '已完成', skipped: '已跳过', error: '失败', locked: '未解锁', claimed: '已领取', redeemed: '已兑换', available: '可兑换', unlocked: '可兑换', claimable: '可兑换' })[value] || value || '--';
@@ -47,11 +48,10 @@ function taskState(task) {
 
 async function load() {
   const request = ++version;
-  const section = props.section, provider = props.model.provider, selected = uid.value;
+  const section = props.section, selected = uid.value;
   error.value = ''; result.value = ''; loading.value = true;
   tasks.value = []; automatic.value = []; rewards.value = null;
   try {
-    if (provider !== 'workbuddy') return;
     if (selected) {
       const response = await api(section === 'tasks' ? `accounts/${encodeURIComponent(selected)}/tasks` : `benefits/accounts/${encodeURIComponent(selected)}/rewards`);
       if (request !== version) return;
@@ -63,9 +63,13 @@ async function load() {
 }
 async function refresh() {
   if (working.value || loading.value) return;
-  if (props.model.provider !== 'workbuddy') {
-    try { await props.model.refreshBalances(); }
-    catch { return; }
+  if (props.model.provider === 'qoder') {
+    const request = ++version;
+    error.value = ''; result.value = ''; loading.value = true;
+    try { await props.model.refreshOverview(); }
+    catch (cause) { if (request === version && cause.name !== 'AbortError') error.value = cause.message; }
+    finally { if (request === version) loading.value = false; }
+    return;
   }
   await load();
 }
@@ -80,14 +84,21 @@ watch(() => options.value.map(a => a.uid).join(','), () => {
 function selectAccount(value) { uid.value = value || ''; load(); }
 async function pollQueue() {
   clearTimeout(queueTimer);
+  if (!supported.value) return;
   try {
     const previous = queue.value.running;
-    queue.value = await api('tasks/queue');
+    const response = await api('tasks/queue');
+    if (!supported.value) return;
+    queue.value = response;
     if (previous && !queue.value.running) { await props.model.refreshOverview(); if (props.section === 'tasks') await load(); }
     if (queue.value.running) queueTimer = setTimeout(pollQueue, 2000);
-  } catch (cause) { if (cause.name !== 'AbortError') { error.value = cause.message; queueTimer = setTimeout(pollQueue, 5000); } }
+  } catch (cause) { if (supported.value && cause.name !== 'AbortError') { error.value = cause.message; queueTimer = setTimeout(pollQueue, 5000); } }
 }
-pollQueue();
+watch(supported, value => {
+  clearTimeout(queueTimer);
+  queue.value = { running: false, items: [] };
+  if (value) pollQueue();
+}, { immediate: true });
 onBeforeUnmount(() => { ++version; clearTimeout(queueTimer); abort.abort(); });
 async function scanTasks() {
   if (working.value) return;
@@ -144,15 +155,49 @@ async function claimRewards() {
 }
 function jumpTo(element) { element?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
 async function copy(value) { try { await navigator.clipboard.writeText(value); Message.success('已复制券码'); } catch { Message.error('复制失败'); } }
+// ── 网关能力补齐（经典控制台迁移）─────────────────────────────
+const gateway = computed(() => !!props.model.capabilities?.gateway);
+const gatewayWorking = ref('');
+async function gatewayBatch(path, label) {
+  if (gatewayWorking.value) return;
+  gatewayWorking.value = path;
+  error.value = ''; result.value = '';
+  try {
+    const data = await api(path, { method: 'POST' });
+    if (path === 'compensation_all' && data.summary) {
+      const s = data.summary;
+      result.value = `全账号补偿领取完成：合计 ${s.total} · 领取 ${s.claimed}（+${formatNumber(s.credit)} 分）· 跳过 ${s.skipped} · 失败 ${s.errored}`;
+      if (!s.ok && s.ok === false) Message.warning('部分账号未拿到确定结论，请看结果详情');
+      else Message.success('补偿领取完成');
+    } else Message.success(label + '已触发，进度看运行日志');
+    await props.model.refreshOverview();
+  } catch (cause) { if (cause.name !== 'AbortError') error.value = cause.message; }
+  finally { gatewayWorking.value = ''; }
+}
+const packages = ref(null), packagesLoading = ref(false), expandedPackage = ref('');
+const packageRows = computed(() => (packages.value?.accounts || []).filter(a => a.uid));
+async function loadPackages() {
+  if (!workbuddyReady.value) return;
+  packagesLoading.value = true;
+  try { const response = await api('packages'); if (workbuddyReady.value) packages.value = response; }
+  catch (cause) { if (workbuddyReady.value && cause.name !== 'AbortError') error.value = cause.message; }
+  finally { packagesLoading.value = false; }
+}
+function expiryDate(value) {
+  if (!value) return '--';
+  const parsed = new Date(typeof value === 'number' ? value : String(value).replace(' ', 'T'));
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai' });
+}
+watch([() => props.section, workbuddyReady], ([section, ready]) => { if (section === 'rewards' && ready) loadPackages(); }, { immediate: true });
 </script>
 
 <template>
   <section :class="['benefits-view', 'benefits-' + section]">
     <header class="page-heading benefit-heading">
       <div>
-        <div class="eyebrow">{{ { tasks: 'OPERATIONS', rewards: 'REWARDS' }[section] }} · {{ model.providerName }}</div>
+        <div class="eyebrow">{{ section === 'tasks' ? 'OPERATIONS · WORKBUDDY' : 'REWARDS · ' + model.providerName.toUpperCase() }}</div>
         <h1>{{ names[section] }}</h1>
-        <p>{{ section === 'tasks' ? '成长任务、活动任务与每日待办' : '官方补偿、连登奖励与活动券码' }}</p>
+        <p>{{ section === 'tasks' ? '成长任务、活动任务与每日待办' : supported ? '官方补偿、连登奖励与活动券码' : model.provider === 'qoder' ? '每日奖励与领取状态' : '查看当前品牌的活动奖励' }}</p>
       </div>
       <div class="heading-actions">
         <template v-if="section === 'tasks' && supported">
@@ -160,8 +205,14 @@ async function copy(value) { try { await navigator.clipboard.writeText(value); M
           <a-button type="primary" :disabled="working || queue.running || !personal.length" @click="confirmTask(null)"><template #icon><icon-play-arrow /></template>执行全部待办</a-button>
         </template>
         <template v-else>
-          <a-button :loading="loading" :disabled="working" @click="refresh"><template #icon><icon-refresh /></template>刷新状态</a-button>
-          <a-button v-if="section === 'rewards' && supported" type="primary" :disabled="working || loading || queue.running || !claimCount" @click="confirmation = { title: '领取全部奖励', rewards: true }"><template #icon><icon-gift /></template>全部领取</a-button>
+          <a-button v-if="supported || model.provider === 'qoder'" :loading="loading" :disabled="working" @click="refresh"><template #icon><icon-refresh /></template>刷新状态</a-button>
+          <template v-if="section === 'rewards' && gateway && workbuddyReady">
+            <a-button :loading="gatewayWorking === 'compensation_all'" :disabled="!!gatewayWorking" @click="gatewayBatch('compensation_all', '全账号补偿领取')"><template #icon><icon-gift /></template>全账号补偿</a-button>
+            <a-button :loading="gatewayWorking === 'travel_all'" :disabled="!!gatewayWorking" @click="gatewayBatch('travel_all', '旅行巡检')">旅行巡检</a-button>
+            <a-button :loading="gatewayWorking === 'activity_all'" :disabled="!!gatewayWorking" @click="gatewayBatch('activity_all', '活跃上报')">活跃上报</a-button>
+            <a-button :loading="gatewayWorking === 'keepalive_all'" :disabled="!!gatewayWorking" @click="gatewayBatch('keepalive_all', 'Token 保活')">Token 保活</a-button>
+          </template>
+          <a-button v-if="section === 'rewards' && workbuddyReady" type="primary" :disabled="working || loading || queue.running || !claimCount" @click="confirmation = { title: '领取全部奖励', rewards: true }"><template #icon><icon-gift /></template>全部领取</a-button>
         </template>
       </div>
     </header>
@@ -226,12 +277,11 @@ async function copy(value) { try { await navigator.clipboard.writeText(value); M
       </template>
 
       <template v-else>
-        <template v-if="model.provider === 'qoder'">
+        <template v-if="model.provider === 'qoder' && model.qoderAccounts.length">
           <div class="reward-feature"><div><div class="eyebrow">DAILY REWARD · QODER</div><h2>每日 100 Credits</h2><p>领取状态以平台当前返回的结果为准</p></div><icon-gift class="reward-feature-icon" /></div>
-          <div class="reward-grid"><article v-for="item in model.accounts" :key="item.uid" class="reward-item"><span class="reward-symbol"><icon-gift /></span><a-tag>{{ item.checkin_done ? '本轮已领取' : '本轮待领取' }}</a-tag><h3>{{ model.accountName(item) }}</h3><p>当前余额 {{ accountCredits(item) }} 积分</p><div class="reward-amount">+100 <small>Credits</small></div><a-button long :disabled="item.disabled || item.checkin_done" :loading="model.busy.has(item.uid + ':checkin')" @click="model.accountAction(item, 'checkin').catch(() => {})">领取奖励</a-button></article></div>
+          <div class="reward-grid"><article v-for="item in model.qoderAccounts" :key="item.uid" class="reward-item"><span class="reward-symbol"><icon-gift /></span><a-tag>{{ item.checkin_done ? '本轮已领取' : '本轮待领取' }}</a-tag><h3>{{ model.accountName(item) }}</h3><p>当前余额 {{ accountCredits(item) }} 积分</p><div class="reward-amount">+100 <small>Credits</small></div><a-button long :disabled="item.disabled || item.checkin_done" :loading="model.busy.has(item.uid + ':checkin')" @click="model.accountAction(item, 'checkin').catch(() => {})">领取奖励</a-button></article></div>
         </template>
-        <a-empty v-else-if="!supported" :description="model.providerName + ' 暂未接入额外活动奖励'" />
-        <template v-else>
+        <template v-else-if="workbuddyReady">
           <div class="benefit-toolbar reward-account-select"><a-select :model-value="uid" :disabled="working" placeholder="选择账号" aria-label="查看账号" @change="selectAccount"><a-option v-for="item in options" :key="item.uid" :value="item.uid">{{ model.accountName(item) }}</a-option></a-select><span class="benefit-toolbar-hint">{{ account ? '当前账号 · ' + model.accountName(account) : '请选择国内版个人账号' }}</span></div>
           <a-alert v-for="(message, name) in rewards?.errors || {}" :key="name" type="warning" class="benefit-notice">{{ name }}：{{ message }}</a-alert>
           <div class="reward-feature">
@@ -251,7 +301,28 @@ async function copy(value) { try { await navigator.clipboard.writeText(value); M
             </section>
             <section ref="rulesView" class="benefit-side-section reward-rules"><h2>活动规则</h2><p><icon-info-circle /><span>奖励按当前账号的活动资格发放。</span></p><p><icon-clock-circle /><span>领取后的有效期以平台返回为准。</span></p><p><icon-check /><span>已领取的档位不可重复兑换。</span></p><p v-if="rewards?.compensation?.end_time">补偿截止：{{ rewards.compensation.end_time }}</p></section>
           </div>
+          <section class="benefit-side-section benefit-packages">
+            <div class="benefit-panel-heading"><div class="benefit-panel-title"><h2>积分构成</h2><span>逐账号实时查询上游套餐包</span></div><a-button size="small" :loading="packagesLoading" @click="loadPackages"><template #icon><icon-refresh /></template>刷新</a-button></div>
+            <div class="table-wrap"><table>
+              <thead><tr><th>账号</th><th>剩余 / 总额</th><th>套餐包</th><th>最早到期</th><th>状态</th></tr></thead>
+              <tbody>
+                <template v-for="row in packageRows" :key="row.uid">
+                  <tr :class="{ 'package-open': expandedPackage === row.uid }">
+                    <td>{{ model.accountName({ uid: row.uid, nickname: row.nickname }) }}</td>
+                    <td><strong class="accent-text">{{ formatNumber(row.remain) }}</strong><small v-if="row.size"> / {{ formatNumber(row.size) }}</small></td>
+                    <td>{{ row.packages?.length || 0 }} 个 <a-button v-if="row.packages?.length" type="text" size="mini" @click="expandedPackage = expandedPackage === row.uid ? '' : row.uid">{{ expandedPackage === row.uid ? '收起' : '明细' }}</a-button></td>
+                    <td>{{ row.packages?.filter(p => p.remain > 0 && p.expires_at).map(p => expiryDate(p.expires_at)).sort()[0] || '--' }}</td>
+                    <td><span :class="row.error ? 'danger-text' : ''">{{ row.error || '正常' }}</span></td>
+                  </tr>
+                  <tr v-if="expandedPackage === row.uid && row.packages?.length" class="package-detail-row">
+                    <td colspan="5"><div v-for="(pkg, index) in row.packages" :key="index" class="voucher-line"><span class="reward-symbol"><icon-gift /></span><div><strong>{{ pkg.name }}</strong><small class="benefit-detail">剩余 {{ formatNumber(pkg.remain) }} / {{ formatNumber(pkg.size) }} · 已用 {{ formatNumber(pkg.used) }}<template v-if="pkg.end_time"> · 失效 {{ expiryDate(pkg.end_time) }}</template></small></div></div></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table><a-empty v-if="!packageRows.length && !packagesLoading" description="暂无账号套餐数据" /></div>
+          </section>
         </template>
+        <a-empty v-else :description="supported || model.provider === 'qoder' ? '添加 ' + model.providerName + ' 账号后即可领取活动奖励' : model.providerName + ' 暂未接入活动奖励'" />
       </template>
     </a-spin>
     <a-modal :visible="!!confirmation" :title="confirmation?.title" :footer="false" :mask-closable="false" @cancel="confirmation = null">

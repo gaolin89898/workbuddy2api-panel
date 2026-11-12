@@ -18,10 +18,12 @@ import (
 
 // Config 顶层配置。
 type Config struct {
-	Listen    string `json:"listen"`     // ":7863"
-	APIKey    string `json:"api_key"`    // 空 = 不鉴权
-	AuthDir   string `json:"auth_dir"`   // ./auths
-	StateFile string `json:"state_file"` // ./data/state.json
+	Listen    string `json:"listen"`         // ":7863"
+	APIKey    string `json:"api_key"`        // 空 = 不鉴权
+	PanelUser string `json:"panel_username"` // 面板账号密码登录用户名；缺省 admin
+	PanelPass string `json:"panel_password"` // 面板登录密码；缺省 123456；两者显式置空 = 关闭面板账号密码登录
+	AuthDir   string `json:"auth_dir"`       // ./auths
+	StateFile string `json:"state_file"`     // ./data/state.json
 	// DNSServers 出站解析用的 DNS 服务器（空 = 系统解析器）；也可用 WB2A_DNS 覆盖。
 	// Android/magisk 模块里没有 /etc/resolv.conf，必须显式指定，否则解析全落本机 :53。
 	DNSServers []string `json:"dns_servers,omitempty"`
@@ -89,6 +91,10 @@ type Config struct {
 		KeepaliveEnabled bool `json:"keepalive_enabled"` // 缺省 true；false = 关 token 保活
 		BlackcatEnabled  bool `json:"blackcat_enabled"`  // 缺省 true；false = 关夜猫子
 		GrowthEnabled    bool `json:"growth_enabled"`    // 缺省 true；false = 关成长任务自动排程
+		// StreakEnabled 连登管家（签到后自动兑换连登档位 + 抽奖）开关，缺省 true。
+		// 与其他任务族一致走显式开关：账号模式迁移（存在 account-settings.json）时
+		// 会物化为 false，避免开启网关隐式新增该操作。
+		StreakEnabled bool `json:"streak_enabled"`
 
 		// IncludeDisabledInTasks 让「保号类」定时任务（签到 / 活跃上报 / token 保活 /
 		// 余额刷新）对**已禁用（disabled）**的账号也执行。
@@ -266,11 +272,15 @@ type Config struct {
 	ServerReadTimeoutDur time.Duration `json:"-"`
 }
 
-// Default 默认配置。
+// Default 默认配置。面板密码不再默认 admin/123456：公开默认口令会让旧配置
+// （仅私有 api_key）升级后凭空多出一个弱密码入口；默认监听收敛到回环地址，
+// 需要局域网访问时在 config.json 显式写 listen。
 func Default() *Config {
 	c := &Config{
-		Listen:    ":7863",
+		Listen:    "127.0.0.1:7863",
 		APIKey:    "",
+		PanelUser: "",
+		PanelPass: "",
 		AuthDir:   "./auths",
 		StateFile: "./data/state.json",
 	}
@@ -298,6 +308,7 @@ func Default() *Config {
 	c.Schedule.ActivityEnabled = true
 	c.Schedule.KeepaliveEnabled = true
 	c.Schedule.BlackcatEnabled = true
+	c.Schedule.StreakEnabled = true
 	c.Schedule.BalanceRefreshEnabled = true
 	c.Schedule.BalanceRefreshMinutes = 5
 	c.Schedule.TaskSweepEnabled = true

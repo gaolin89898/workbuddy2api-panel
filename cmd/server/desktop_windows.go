@@ -63,14 +63,14 @@ func reportDesktopError(err error) {
 	windows.NewLazySystemDLL("user32.dll").NewProc("MessageBoxW").Call(0, uintptr(unsafe.Pointer(message)), uintptr(unsafe.Pointer(title)), 0x10)
 }
 
-func runDesktop(configPath string, cfg *Config) error {
+func runDesktop(configPath string, cfg *Config, gateway bool) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	version, err := webviewloader.GetInstalledVersion()
 	if err != nil || version == "" {
 		return fmt.Errorf("未检测到 Microsoft Edge WebView2 Runtime，请安装后重新打开桌面版。下载：https://developer.microsoft.com/microsoft-edge/webview2/")
 	}
-	origin, stop, err := startDesktopService(configPath, cfg)
+	origin, stop, err := startDesktopService(configPath, cfg, gateway)
 	if err != nil {
 		return err
 	}

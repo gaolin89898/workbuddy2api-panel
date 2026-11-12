@@ -47,6 +47,7 @@ func travelDay(t time.Time) string {
 // 401/查询失败只跳过该账号本轮（不强刷 token，交 22:00 keepalive）；
 // 账号间限速 travelAccountDelay。
 func (s *Scheduler) RunTravelNow() {
+	s.noteRun("travel")
 	first := true
 	for _, st := range s.cfg.Pool.List() {
 		if st.Disabled {

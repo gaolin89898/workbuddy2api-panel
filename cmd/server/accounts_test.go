@@ -41,7 +41,6 @@ func TestAccountHandlerRestrictsRoutes(t *testing.T) {
 		{"POST", "/panel/api/trae/accounts/t1/remove", 401},
 		{"POST", "/panel/api/loomy/accounts", 401},
 		{"POST", "/panel/api/loomy/local_import", 401},
-		{"POST", "/panel/api/loomy/checkin_all", 401},
 		{"POST", "/panel/api/loomy/balance_all", 401},
 		{"POST", "/panel/api/loomy/accounts/l1/remove", 401},
 		{"POST", "/panel/api/checkin_all", 401},
@@ -167,10 +166,10 @@ func TestMigrateAccountSettings(t *testing.T) {
 		t.Fatal(err)
 	}
 	var doc struct {
-		Listen      string `json:"listen"`
-		Unknown     any    `json:"unknown_field"`
-		Schedule    map[string]any `json:"schedule"`
-		Checkin     map[string]any `json:"checkin"`
+		Listen   string         `json:"listen"`
+		Unknown  any            `json:"unknown_field"`
+		Schedule map[string]any `json:"schedule"`
+		Checkin  map[string]any `json:"checkin"`
 	}
 	if err := json.Unmarshal(raw, &doc); err != nil {
 		t.Fatal(err)
@@ -251,7 +250,7 @@ func TestAccountModeSettingsEndpoints(t *testing.T) {
 	}
 	pn := panel.New(panel.Config{
 		AccountsOnly: true, Pool: p, Scheduler: sch, APIKey: "secret",
-		ConfigPath: settingsPath,
+		ConfigPath:  settingsPath,
 		LoadCheckin: settings.load,
 		SaveCheckin: func(raw []byte) error {
 			_, err := settings.save(raw, sch)

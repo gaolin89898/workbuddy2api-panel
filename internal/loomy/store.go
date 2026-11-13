@@ -47,6 +47,7 @@ type Status struct {
 	BalanceKnown     bool      `json:"balance_known"`
 	BalanceUpdatedAt time.Time `json:"balance_updated_at"`
 	CheckinDone      bool      `json:"checkin_done"`
+	CheckinSupported bool      `json:"checkin_supported"`
 	TodayEarned      float64   `json:"today_earned"`
 	PetScore         float64   `json:"pet_score"`
 	ReachedTier      string    `json:"reached_tier,omitempty"`
@@ -191,7 +192,7 @@ func (s *Store) Add(ctx context.Context, a Account, expected string) (Status, []
 	snap, err := s.client.snapshot(ctx, credential)
 	if err != nil {
 		if errors.Is(err, ErrAuthExpired) {
-			return Status{}, nil, fmt.Errorf("Loomy 会话已失效：请确认 Loomy 桌面端已登录（必要时退出后重新登录），再重新导入本机会话")
+			return Status{}, nil, fmt.Errorf("Loomy 会话已失效：请确认 Loomy 桌面端已登录（必要时退出后重新登录），再点击「重新读取」")
 		}
 		appendWarning(err.Error())
 	} else {

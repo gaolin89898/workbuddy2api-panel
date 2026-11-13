@@ -5,7 +5,7 @@
 <h1 align="center">WorkBuddy2API Panel</h1>
 
 <p align="center">
-  <b>WorkBuddy · Trae · Qoder · MiniMax · Loomy 账号管理与每日签到 · 可选 OpenAI 兼容网关</b><br>
+  <b>WorkBuddy · Trae · Qoder · MiniMax · Loomy · Antigravity · 豆包 账号管理与每日签到 · 可选 OpenAI 兼容网关</b><br>
   AI 工具箱 · Windows 桌面窗口 · DSH 插件 · 账号切换 · 成长任务 · 活动奖励 · 状态持久化
 </p>
 
@@ -20,19 +20,19 @@
 
 ## 使用声明（必读）
 
-本项目用于管理本人授权的 WorkBuddy / CodeBuddy、Trae、Qoder 和 MiniMax 账号，以及在本机或私有环境接入个人工具。请遵守各平台服务条款，不得用于批量注册、共享或转售账号额度、卡密分发及其他违规用途。
+本项目用于管理本人授权的 WorkBuddy / CodeBuddy、Trae、Qoder、MiniMax、Loomy、Antigravity 和 豆包 账号，以及在本机或私有环境接入个人工具。请遵守各平台服务条款，不得用于批量注册、共享或转售账号额度、卡密分发及其他违规用途。
 
 代码采用 MIT 协议，允许的使用和再分发范围以 [LICENSE](LICENSE) 为准；该许可不授予任何平台接口或服务的使用权，也不代表作者对第三方收费版本提供支持或背书。账号凭证、客户端登录快照和管理密钥应由本人保管。平台接口、活动规则和账号资格可能变化，执行结果以平台回读状态为准。
 
 ## 项目简介
 
-WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **WorkBuddy / Trae / Qoder / MiniMax / Loomy** 五个平台的账号、积分和每日签到，支持本机 Windows 客户端账号切换、WorkBuddy 成长任务与活动奖励。页面可通过浏览器、Windows 桌面窗口或 DSH 插件使用，账号和设置由 Go 后端持久保存。
+WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **WorkBuddy / Trae / Qoder / MiniMax / Loomy / Antigravity / 豆包** 七个平台的账号（Antigravity 不做签到、不提供积分余额；Loomy 展示积分余额；豆包展示订阅与额度，暂不支持签到），支持本机 Windows 客户端账号切换、WorkBuddy 成长任务与活动奖励。页面可通过浏览器、Windows 桌面窗口或 DSH 插件使用，账号和设置由 Go 后端持久保存。
 
 直接运行程序进入账号管理模式；需要为个人工具提供 OpenAI 兼容接口时，使用同一程序加上 `-gateway`。
 
 | 启动方式 | 页面与能力 | 自动运行 |
 |---|---|---|
-| 默认账号管理 | AI 工具箱：账号、任务中心、活动奖励、签到设置、运行日志；支持五个平台与 WorkBuddy / Trae / Qoder 本机客户端切换 | 按北京时间执行签到、按设置刷新积分和启动补签；任务与活动奖励手动执行 |
+| 默认账号管理 | AI 工具箱：账号、任务中心、活动奖励、签到设置、运行日志；支持七个平台与 WorkBuddy / Trae / Qoder 本机客户端切换 | 按北京时间执行签到、按设置刷新积分和启动补签；任务与活动奖励手动执行 |
 | `-gateway` | 多平台聊天转发、用量、模型、配置与日志，以及 `/v1/*` 接口 | 按 `config.json` 中的排程运行签到、保活、旅行、活跃等任务 |
 
 默认模式不开放 `/v1/*`，不初始化网关用量统计、会话路由或 Redis。加上 `-gateway` 后，使用面板中已有账号提供多平台转发。
@@ -53,15 +53,17 @@ WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **
 
 新增平台均通过 `POST /v1/chat/completions` 接入，支持 `stream: true/false`。模型目录按启用账号合并并缓存 5 分钟；Loomy 仅列出 OpenAI Chat 模型，Trae 排除辅助模型、自定义模型占位和隐藏配置。MiniMax 使用桌面端内置的 M3 / M3.1-Flash 目录，账号实际权限以上游响应为准。MiniMax 转换文本、图片、工具历史和思考内容；未适配参数（如 `response_format`）会返回 400。
 
-Antigravity 在「添加账号 → Antigravity」导入 OAuth 授权 JSON，或填写 Refresh Token / Access Token。支持 CLIProxyAPI 单账号授权文件、Antigravity Tools 的嵌套 `token` 文件，以及 `accounts` 数组导出；混合导出只接收 Antigravity 记录。添加时通过 Google 验证邮箱与项目；首次使用需先在官方客户端完成账号初始化。凭证保存在 `state_file` 同目录的 `antigravity-accounts.json`。使用 Refresh Token 续期前，需要在后端进程环境中设置与该授权匹配的 `WB2A_ANTIGRAVITY_CLIENT_ID` 和 `WB2A_ANTIGRAVITY_CLIENT_SECRET`；仓库不内置 OAuth 客户端凭据。临期 Access Token 使用 Refresh Token 自动续期并落盘；仅有 Access Token 的账号到期后需要更新凭证。页面只返回脱敏状态，不提供签到或积分余额。当前未提供浏览器 OAuth 登录和本机客户端切换。
+Antigravity 在「添加账号 → Antigravity」点击「开始网页授权」，使用 Google 账号登录并同意授权后，账号自动验证并保存，无需填写 OAuth 凭证。内置公开的桌面应用 OAuth 客户端配置，默认无需设置环境变量；如需使用自定义客户端，需同时设置与授权匹配的 `WB2A_ANTIGRAVITY_CLIENT_ID` 和 `WB2A_ANTIGRAVITY_CLIENT_SECRET`。网页授权需在运行面板的电脑上通过 localhost / 127.0.0.1 使用，回调占用本机 38121 端口。也可导入 CLIProxyAPI 单账号授权文件、Antigravity Tools 的嵌套 `token` 文件，或 `accounts` 数组导出；混合导出只接收 Antigravity 记录。添加时验证邮箱与项目；账号需已获得官方服务权限并完成项目初始化。凭证保存在 `state_file` 同目录的 `antigravity-accounts.json`，临期令牌自动续期并落盘。支持取消授权和同一账号重新授权；页面不返回令牌，不需要签到，不提供积分余额或本机客户端切换。
 
 Antigravity 通过 `fetchAvailableModels` 读取实际目录，隐藏图片/视频生成模型；调用 `antigravity/` 前缀的完整 ID，失败时仅在 Antigravity 账号内轮换。工具调用签名通过 `extra_content.google.thought_signature` 返回，并在进程内按账号、模型及调用 ID 缓存，方便客户端多轮工具历史回传。图片输入目前仅支持 Base64 data URL；`response_format`、音频和未支持的工具 Schema 会返回 400。协议转换、续期、流式/非流式、工具历史及异常处理已用模拟上游测试，真实账号可用性仍需导入授权后验证。
 
-豆包在「添加账号 → 豆包」粘贴已登录 doubao.com 的 `sessionid` 或完整 Cookie，保存前通过官方账号接口验证身份；同一账号重复添加会更新凭证，更新已有账号时拒绝替换成其他身份。支持备注、启停、移除和手动刷新登录状态，凭证保存在 `state_file` 同目录的 `doubao-accounts.json`；页面和日志不返回 Cookie。登录失效后需重新登录豆包并更新凭证，当前不提供自动续期、客户端切换、签到或积分查询。
+豆包在「添加账号 → 豆包」点击「开始网页授权」，在自动打开的独立浏览器窗口中完成网页登录，面板自动读取并验证会话后保存账号，无需复制 sessionid、Cookie 或 Token。请在运行面板的电脑上通过 localhost / 127.0.0.1 使用，并安装桌面版 Edge / Chrome。支持取消授权、同一账号重新授权、备注、启停和移除；更新已有账号时拒绝替换成其他身份。凭证保存在 `state_file` 同目录的 `doubao-accounts.json`，页面和日志不返回 Cookie。登录失效后重新进行网页授权，当前不提供自动续期、客户端切换或签到。
+
+豆包「订阅与额度管理」的活动赠送额度、近 7 天等订阅额度在网页授权后自动查询，也可手动点击「刷新额度」。账号页分别显示各项剩余量、已用量 / 总额与到期时间，顶部只汇总活动剩余额度，周期额度不与活动额度相加。这些额度与视频生成积分钱包不同，已使用真实账号核对。首次查询失败显示未知；后续失败保留上次成功结果，并显示查询时间和错误原因，不将失败视为余额为零。该额度接口不领取奖励或触发活动。
 
 豆包网关调用 `doubao/doubao`，仅支持文本消息；多轮历史合并为带角色的文本，使用独立的网页会话生成。图片、工具调用和结构化输出请求会返回 400；网页协议不提供可靠的 token / 积分用量，面板不估算。网页风控或协议变化可能导致请求失败，需在豆包完成验证后重试；不会自动绕过验证码，也不会在流中断后重放生成。接入使用公开网页协议独立实现，账号验证、流事件转换和失败处理已通过模拟上游测试，真实账号对话尚待验证。
 
-新增平台使用各自的账号轮换、会话粘性、在途上限和失败冷却，复用 `pool.max_in_flight`（0 表示不限）与 `soft_rate` 设置；WorkBuddy 专属的积分权重、成本调度与 Redis 粘性规则仍只作用于 WorkBuddy。禁用账号不参与转发；MiniMax / Qoder / Trae / Antigravity 临期凭证在已有存储锁内刷新并持久化，推理过程不持有该锁。Loomy 会话过期后需重新导入。
+新增平台使用各自的账号轮换、会话粘性、在途上限和失败冷却，复用 `pool.max_in_flight`（0 表示不限）与 `soft_rate` 设置；WorkBuddy 专属的积分权重、成本调度与 Redis 粘性规则仍只作用于 WorkBuddy。禁用账号不参与转发；MiniMax / Qoder / Trae / Antigravity 临期凭证在已有存储锁内刷新并持久化，推理过程不持有该锁。Loomy 会话过期后需在桌面端重新登录，再重新选择 Loomy 或点击「重新读取」；豆包 Cookie 失效后需重新登录豆包并更新凭证。
 
 只有明确的上游拒绝、且尚未输出时才会尝试其他账号；连接结果不明、断流或输出后错误不会重放生成。Trae 的 HTTP 200 流内错误会转换为真实失败，不计为成功请求。用量和请求日志按平台模型名记录；`/healthz`、`/status` 的 `provider_totals` 展示新增平台的本地调度状态。
 
@@ -71,8 +73,8 @@ Antigravity 通过 `fetchAvailableModels` 读取实际目录，隐藏图片/视�
 
 | 能力 | 说明 |
 |---|---|
-| 多平台账号 | WorkBuddy 浏览器授权与 Cockpit JSON 导入；Trae 国内版直接登录、凭证及备份导入；Qoder 国内版浏览器授权或 PAT；MiniMax 国内版粘贴 Cookie / 令牌；Loomy（讯飞）本机桌面端会话导入或粘贴 session |
-| 积分与每日签到 | 单号 / 全部签到、余额刷新、停用 / 启用、备注；每日 09:00 / 21:00 默认时刻可修改，Qoder 按 10:00 活动轮次处理，Loomy 按宠物打工档位忠实补领（见下文） |
+| 多平台账号 | WorkBuddy 浏览器授权与 Cockpit JSON 导入；Trae 国内版直接登录、凭证及备份导入；Qoder 国内版浏览器授权或 PAT；MiniMax 国内版粘贴 Cookie / 令牌；Loomy（讯飞）选择平台时自动读取本机桌面端登录配置；Antigravity 与豆包直接网页授权，无需填写 OAuth 凭证 |
+| 积分与每日签到 | 单号 / 全部签到、余额刷新、停用 / 启用、备注；每日 09:00 / 21:00 默认时刻可修改，Qoder 按 10:00 活动轮次处理；Loomy 不做签到，每日积分由桌面端自动发放 |
 | 本机客户端切换 | Windows WorkBuddy / WorkBuddy AI、Trae CN、Qoder CN；登录态备份、重启后身份核验和失败回滚，支持自定义安装目录和 Qoder 更新目录 |
 | 成长任务与活动奖励 | WorkBuddy 国内版个人账号扫描待办、执行全部待办、查看队列、领取奖励；企业身份按实际账号属性判断，执行后回读进度 |
 | 状态持久化 | 凭证、账号状态、备注和签到设置保存在本地；网关模式额外支持用量归档及可选 Upstash Redis 镜像 |
@@ -96,15 +98,15 @@ MiniMax 国内版（agent.minimaxi.com，实际跳转 agent.minimax.cn）已完�
 
 实现依据来自本机 MiniMax Code 桌面端（`AppData\Roaming\MiniMax/logs` 与安装目录 asar 中的 TypeScript 源码）；若站点调整签名盐值或端点，对照桌面端新版本更新 `internal/minimax/client.go` 顶部常量即可。
 
-## Loomy 签到接入
+## Loomy 接入
 
-Loomy（科大讯飞「AI 工作搭子」桌面端）已完整接入：账号管理、每日奖励领取与积分余额查询。
+Loomy（科大讯飞「AI 工作搭子」桌面端）已接入：账号管理与积分余额查询；不做签到，每日积分由桌面端自动发放（约 5000 积分/日）。
 
 | 能力 | 实现方式 |
 |---|---|
-| 账号添加 | 「本机导入」读取本机已登录桌面端的 `C:\Users\Public\Loomy\<用户哈希>\userData\auth-session.json`（仅限本机请求；多个用户目录并存时，按文件修改时间取**最近写入**的一份）；或粘贴 auth-session.json 中的 `session` + `userid` |
-| 登录边界 | 桌面端登录依赖短信验证与 HMAC 签名，面板不仿造登录；session 失效（业务码 100002）时请在 Loomy 桌面端重新登录后重新导入 |
-| 每日奖励 | Loomy 无传统签到，每日积分来自「宠物打工」：按当日实际使用量（有效会话 × 深度轮次）计分，跨过档位阈值 tier_1/2/3 = 60/100/150 分后领取，每日上限 1000 积分。面板**忠实补领**：只申请本机桌面端已达成（`%APPDATA%\Loomy\pet-work.json` 的当日 `petWorkScore`）、服务端尚未发放（`rewardedTierIds`）的档位，升序逐个 `POST /api/v1/pet-work/rewards` 并以响应中的权威状态确认；无欠账记为「今日已结算」，档位随当日使用增长后由下一轮调度复查 |
+| 账号读取 | 在平台下拉框中选择 Loomy 即自动读取本机已登录桌面端的 `C:\Users\Public\Loomy\<用户哈希>\userData\auth-session.json`（仅限本机请求；多个用户目录并存时，按文件修改时间取**最近写入**的一份）；无需手动添加账号或粘贴凭证，重新登录或更换账号后可点击「重新读取」 |
+| 登录边界 | 桌面端登录依赖短信验证与 HMAC 签名，面板不仿造登录；session 失效（业务码 100002）时请在 Loomy 桌面端重新登录后重新选择 Loomy 或点击「重新读取」 |
+| 每日奖励 | 面板不签到、不补领：每日积分由 Loomy 桌面端自动发放（约 5000 积分/日），面板仅通过积分余额查询展示结果 |
 | 积分余额 | 个人口径：`GET /api/v2/points/records`（个人流水）响应根部的 `balance`（桌面端「积分」页余额同源）。团队口径 `GET /api/v1/team-points/balance` 仅对已切换团队的账号有效，个人账号返回 100001「当前未切换到团队」 |
 
 积分 API（`https://loomyad.xunfei.cn`，即桌面端加密配置 `resources/.env.prod` 的 `LOOMY_POINTS_BASE_URL` 生产地址）无需签名，鉴权仅自定义头 `token: <session>`，业务信封 `{code, desc, data}`（`000000` 成功）。注意桌面端登录颁发的是生产 token：打到测试环境 `ossptest.voicecloud.cn` 会返回业务码 100002「登录已失效」，并非真实掉登录。协议依据为本机 Loomy 桌面端 `resources/app.asar.unpacked/electron/`（`points-service.js`、`pet/pet-work-service.js`，未压缩主进程源码）；本地进度按 `sha256(userid)` 分桶（已用本机真实 userKey 校验）。若 Loomy 调整端点或档位配置，对照新版桌面端更新 `internal/loomy/client.go`。
@@ -217,15 +219,17 @@ DSH 提供页面和接口桥接，后台任务由目标电脑上的 Go 账号服
 ### Windows 单文件运行
 
 ```powershell
-# 从源码构建；也可使用可信构建产物
-go build -trimpath -ldflags="-s -w" -o wb2api.exe ./cmd/server
+# 从源码构建；也可使用可信构建产物。-H=windowsgui 为无控制台子系统：计划任务 /
+# VBS / WMI / 双击拉起完全不弹终端框（Windows Terminal 设为默认终端后，ShowWindow
+# 式隐藏已失效）；从终端手动运行时进程自动 AttachConsole，日志照常输出。
+go build -trimpath -ldflags="-s -w -H=windowsgui" -o wb2api.exe ./cmd/server
 
 # 本机使用时只监听回环地址
 $env:WB2A_LISTEN='127.0.0.1:7863'
 .\wb2api.exe -config config.json
 ```
 
-打开 <http://127.0.0.1:7863/panel/>。首次启动缺少配置时自动生成 `config.json`，管理密钥位于 `api_key` 字段。账号、凭证和设置保存在本地，关闭浏览器不会停止独立运行的后端。
+打开 <http://127.0.0.1:7863/panel/>。首次启动缺少配置时自动生成 `config.json`，管理密钥位于 `api_key` 字段。本机打开页面自动连接，无需登录；点击「管理密钥」可查看并复制当前 API 密钥。账号、凭证和设置保存在本地，关闭浏览器不会停止独立运行的后端。
 
 ### Windows 桌面窗口
 
@@ -262,17 +266,16 @@ go test ./...
 
 ### DSH 插件
 
-当前插件版本为 **0.1.47**。在 `dsh-plugin` 目录构建、检查并打包：
+当前插件版本为 **0.1.55**。在 `dsh-plugin` 目录构建、检查并打包：
 
 ```powershell
 npm --prefix ../web ci
 npm run build
 npm test
 npm pack
-dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.47.tgz"
 ```
 
-独立 DSH Web 使用 `--profile web`。点击侧栏「AI 工具箱」展开五项菜单，嵌入页面使用整块内容区，主题与 Arco 滚动条跟随 DSH；管理密钥入口位于「签到设置」。Go 后端需在目标电脑单独运行。使用远程会话插件 1.2.2 或更新版本时，页面、账号统计、设置与客户端操作跟随当前电脑；目标电脑也需安装 AI 工具箱 0.1.9 或更新版本。各电脑密钥和备注独立保存，连接失败会报错，不回退显示本机数据。已在 DSH `0.2.2-rc.1` 上验证宽屏与窄屏抽屉布局下的菜单、主题和接口连接。安装细节见 [dsh-plugin/README.md](dsh-plugin/README.md)。
+桌面版在「插件 → 添加插件 → 安装第三方插件」输入生成的 `.tgz` 绝对路径，安装后点击「立即启用」；`desktop` profile 由桌面应用管理，不能通过 CLI 更新。独立 DSH Web 可执行 `dsh plugin --profile web add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.55.tgz"`。点击侧栏「AI 工具箱」打开页面，嵌入页面使用整块内容区，主题与 Arco 滚动条跟随 DSH；「管理密钥」入口位于工具箱侧栏底部。Go 后端需在目标电脑单独运行。使用远程会话插件 1.2.2 或更新版本时，页面、账号统计、设置与客户端操作跟随当前电脑；目标电脑也需安装 AI 工具箱 0.1.9 或更新版本。各电脑密钥和备注独立保存，连接失败会报错，不回退显示本机数据。已在 DSH `0.2.2-rc.1` 上验证宽屏与窄屏抽屉布局下的菜单、主题和接口连接。安装细节见 [dsh-plugin/README.md](dsh-plugin/README.md)。
 
 ### Docker Compose
 

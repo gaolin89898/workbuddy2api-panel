@@ -340,7 +340,7 @@ const modelRows = computed(() => {
 const modelMetrics = computed(() => {
   const rows = models.value?.models || [];
   return [
-    { label: '模型', value: String(rows.length), sub: supplier.value === 'auto' ? '全部应用' : supplierById[supplier.value]?.name },
+    { label: '模型', value: String(rows.length), sub: supplierById[models.value?.supplier || supplier.value]?.name || '自动' },
     { label: '支持思考', value: String(rows.filter(row => row.supports_reasoning).length), sub: 'reasoning' },
     { label: '支持工具', value: String(rows.filter(row => row.supports_tool_call).length), sub: 'tool call' },
     { label: '视觉', value: String(rows.filter(row => row.supports_images).length), sub: 'images' },

@@ -594,7 +594,7 @@ func (s *Scheduler) RunCheckinNow() {
 	}
 }
 
-// RunCheckinHook 触发签到挂载的旁路任务（Trae / MiniMax / Loomy 旁路签到）。
+// RunCheckinHook 触发签到挂载的旁路任务（Trae / MiniMax 旁路签到）。
 // 手动全量签到与排程批次共用同一执行入口：自动批次在 runBatch 里跑
 // RunCheckinNow + CheckinHook，面板手动触发走 RunCheckinNow + RunCheckinHook。
 func (s *Scheduler) RunCheckinHook() {

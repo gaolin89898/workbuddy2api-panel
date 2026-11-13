@@ -41,6 +41,8 @@ docs/
 # Windows binaries
 /wb2api.exe
 /wb2api-next.exe
+/wb2api.exe.bak-*
+/wb2api.exe~
 /AccountsDesktop.exe
 /login.exe
 /credit.exe

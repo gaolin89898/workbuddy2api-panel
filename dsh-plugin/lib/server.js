@@ -56,16 +56,17 @@ function apiRoute(value) {
   return /^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(path) ? value : null;
 }
 
-export function createHandler({ backendPort = 7863 } = {}) {
+export function createHandler({ backendPort = 7863 } = {}, { onApiKey } = {}) {
   if (!Number.isInteger(backendPort) || backendPort < 1 || backendPort > 65535) throw new Error('backendPort must be an integer from 1 to 65535');
   // Each machine keeps its Go service on loopback. DSH carries the registered
   // plugin route to the selected machine; this is never an arbitrary URL proxy.
   const backend = `http://127.0.0.1:${backendPort}`;
-  // 面板账号密码登录本身是换取令牌的端点：凭证由后端校验，无需预先持有密钥。
-  const isLogin = (path, method) => method === 'POST' && path === 'auth/login';
+  // 自动连接引导与旧版登录接口无需预先持有凭证；后端验证请求来源或登录信息。
+  const isLogin = (path, method) => (method === 'POST' && path === 'auth/login') || (method === 'GET' && path === 'auth/bootstrap');
   async function forward(req, res, { path, method, authorization, contentType, body }) {
     if (!isLogin(path, method) && (!/^Bearer \S+$/i.test(authorization) || authorization.length > 8192)) return json(res, 401, '请输入当前电脑账号服务的管理密钥');
     if (!apiRoute(path)) return json(res, 400, 'Invalid API path');
+    const gatewayKey = authorization.replace(/^Bearer /i, '');
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 330_000);
     const disconnected = () => { if (!res.writableEnded) controller.abort(); };
@@ -76,6 +77,9 @@ export function createHandler({ backendPort = 7863 } = {}) {
         headers: { authorization, 'content-type': contentType || 'application/json' },
         body: method === 'POST' ? body : undefined,
       });
+      // 后端认可的密钥顺带同步进 DSH 凭证库（pi-ai 网关路由按次解析它）；
+      // 401 说明密钥无效，不同步避免写坏凭证。
+      if (onApiKey && !isLogin(path, method) && upstream.ok && gatewayKey) onApiKey(gatewayKey).catch(() => {});
       if (upstream.status >= 300 && upstream.status < 400) return json(res, 502, '账号服务返回了不支持的重定向');
       const response = Buffer.from(await upstream.arrayBuffer());
       if (res.destroyed) return;

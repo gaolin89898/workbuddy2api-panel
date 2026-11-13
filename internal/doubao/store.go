@@ -16,13 +16,19 @@ import (
 )
 
 type Account struct {
-	ID         string    `json:"id"`
-	AccountUID string    `json:"account_uid"`
-	Nickname   string    `json:"nickname"`
-	Cookie     string    `json:"cookie"`
-	Disabled   bool      `json:"disabled"`
-	VerifiedAt time.Time `json:"verified_at"`
-	LastError  string    `json:"last_error,omitempty"`
+	ID               string    `json:"id"`
+	AccountUID       string    `json:"account_uid"`
+	Nickname         string    `json:"nickname"`
+	Cookie           string    `json:"cookie"`
+	Disabled         bool      `json:"disabled"`
+	VerifiedAt       time.Time `json:"verified_at"`
+	Credits          float64   `json:"credits"`
+	Total            float64   `json:"credits_total"`
+	Quotas           []Quota   `json:"quotas"`
+	Plan             string    `json:"plan"`
+	BalanceKnown     bool      `json:"balance_known"`
+	BalanceUpdatedAt time.Time `json:"balance_updated_at"`
+	LastError        string    `json:"last_error,omitempty"`
 }
 
 // Status deliberately excludes all credentials.
@@ -35,12 +41,17 @@ type Status struct {
 	Disabled         bool      `json:"disabled"`
 	CheckinSupported bool      `json:"checkin_supported"`
 	BalanceKnown     bool      `json:"balance_known"`
+	Credits          float64   `json:"credits"`
+	Total            float64   `json:"credits_total"`
+	Quotas           []Quota   `json:"quotas"`
+	Plan             string    `json:"plan"`
+	BalanceUpdatedAt time.Time `json:"balance_updated_at"`
 	VerifiedAt       time.Time `json:"verified_at"`
 	LastError        string    `json:"last_error,omitempty"`
 }
 
 func status(a Account) Status {
-	return Status{UID: a.ID, AccountUID: a.AccountUID, Nickname: a.Nickname, Provider: "doubao", Realm: "cn", Disabled: a.Disabled, VerifiedAt: a.VerifiedAt, LastError: a.LastError}
+	return Status{UID: a.ID, AccountUID: a.AccountUID, Nickname: a.Nickname, Provider: "doubao", Realm: "cn", Disabled: a.Disabled, VerifiedAt: a.VerifiedAt, Credits: a.Credits, Total: a.Total, Quotas: append([]Quota{}, a.Quotas...), Plan: a.Plan, BalanceKnown: a.BalanceKnown, BalanceUpdatedAt: a.BalanceUpdatedAt, LastError: a.LastError}
 }
 
 type Store struct {
@@ -160,6 +171,8 @@ func (s *Store) Add(ctx context.Context, a Account, expected string) (Status, er
 			return Status{}, fmt.Errorf("新凭证属于另一个豆包账号，请单独添加")
 		}
 		a.ID, a.Disabled = old.ID, old.Disabled
+		a.Credits, a.BalanceKnown, a.BalanceUpdatedAt = old.Credits, old.BalanceKnown, old.BalanceUpdatedAt
+		a.Total, a.Quotas, a.Plan = old.Total, old.Quotas, old.Plan
 	} else {
 		hash := sha256.Sum256([]byte(a.AccountUID))
 		a.ID = "doubao-" + hex.EncodeToString(hash[:12])
@@ -167,6 +180,9 @@ func (s *Store) Add(ctx context.Context, a Account, expected string) (Status, er
 	if a.Nickname == "" {
 		a.Nickname = "豆包账号"
 	}
+	// A valid login remains usable when the separate quota service is down.
+	// Keep the last successful balance and expose the query error in Status.
+	_ = s.refreshBalance(ctx, &a)
 	if index >= 0 {
 		accounts[index] = a
 	} else {
@@ -179,6 +195,18 @@ func (s *Store) Add(ctx context.Context, a Account, expected string) (Status, er
 		return Status{}, err
 	}
 	return status(a), nil
+}
+
+func (s *Store) refreshBalance(ctx context.Context, a *Account) error {
+	value, err := s.client.Balance(ctx, a)
+	a.LastError = ""
+	if err != nil {
+		a.LastError = err.Error()
+		return err
+	}
+	a.Credits, a.Total, a.BalanceKnown, a.BalanceUpdatedAt = value.Credits, value.Total, value.Known, time.Now()
+	a.Quotas, a.Plan = value.Quotas, value.Plan
+	return nil
 }
 
 func (s *Store) Action(ctx context.Context, id, action string) (Status, error) {
@@ -203,9 +231,10 @@ func (s *Store) Action(ctx context.Context, id, action string) (Status, error) {
 			a.Disabled = false
 		case "balance":
 			inspectErr = s.client.Inspect(ctx, a)
-			a.LastError = ""
 			if inspectErr != nil {
 				a.LastError = inspectErr.Error()
+			} else {
+				inspectErr = s.refreshBalance(ctx, a)
 			}
 		default:
 			return Status{}, fmt.Errorf("不支持的豆包账号操作")

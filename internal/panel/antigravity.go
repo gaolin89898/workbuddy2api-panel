@@ -15,6 +15,7 @@ import (
 )
 
 func (p *Panel) antigravityRoutes() {
+	p.webLoginRoutes("antigravity")
 	p.mux.HandleFunc("POST /panel/api/antigravity/accounts", p.withAuth(p.antigravityAdd))
 	p.mux.HandleFunc("POST /panel/api/antigravity/import", p.withAuth(p.antigravityImport))
 	p.mux.HandleFunc("POST /panel/api/antigravity/accounts/{uid}/{action}", p.withAuth(p.antigravityAction))

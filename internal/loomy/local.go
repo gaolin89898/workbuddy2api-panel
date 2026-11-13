@@ -25,7 +25,7 @@ type LocalSession struct {
 	Phone   string `json:"phone"`
 }
 
-// FindLocalSession 供面板导入入口调用（面板仅本机可触发）。
+// FindLocalSession 供面板选择 Loomy 时自动读取（面板仅本机可触发）。
 func FindLocalSession() (LocalSession, error) { return findLocalSession() }
 
 // findLocalSession 在本机已登录的 Loomy 桌面端安装中查找登录会话。
@@ -60,7 +60,7 @@ func findLocalSession() (LocalSession, error) {
 			return s, nil
 		}
 	}
-	return LocalSession{}, fmt.Errorf("本机未找到已登录的 Loomy 桌面端，请先在桌面端登录或改用粘贴凭证")
+	return LocalSession{}, fmt.Errorf("本机未找到已登录的 Loomy 桌面端，请先在桌面端登录，再点击「重新读取」")
 }
 
 // fileModTime 返回文件修改时间；读取失败时返回零值（排序时排在最后）。

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { createHandler, localRequest, PREFIX } from '../lib/server.js';
-import { apply } from '../lib/index.js';
+import { apply, keySyncer } from '../lib/index.js';
 
 async function serve(t, handler) {
   const server = http.createServer(handler);
@@ -73,14 +73,73 @@ test('preserves authentication errors and never follows backend redirects', asyn
   assert.equal(calls, 2);
 });
 
+test('bootstraps without credentials and syncs the actual key after automatic connection', async t => {
+  const synced = [];
+  const backend = await serve(t, (req, res) => {
+    if (req.url === '/panel/api/auth/bootstrap') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ api_key: 'actual-key', key_available: true }));
+      return;
+    }
+    assert.equal(req.headers.authorization, 'Bearer actual-key');
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{}');
+  });
+  const ui = await serve(t, createHandler({ backendPort: backend.port }, {
+    onApiKey: async key => { synced.push(key); },
+  }));
+  const bootstrap = await fetch(ui.url + PREFIX + 'api/auth/bootstrap');
+  assert.equal(bootstrap.status, 200);
+  const { api_key } = await bootstrap.json();
+  // 过期会话不应经公开引导接口写入网关凭证库。
+  await fetch(ui.url + PREFIX + 'api/auth/bootstrap', { headers: { Authorization: 'Bearer old-session' } });
+  assert.deepEqual(synced, []);
+  const connected = await fetch(ui.url + PREFIX + 'api/overview', { headers: { Authorization: `Bearer ${api_key}` } });
+  assert.equal(connected.status, 200);
+  assert.deepEqual(synced, ['actual-key']);
+});
+
 test('plugin registers one disposable route without starting the backend', () => {
   let registered, disposed = false, cleanup;
   apply({
     webServer: { register(route) { registered = route; return () => { disposed = true; }; } },
+    credentials: { resolve: async () => undefined, set: async () => {} },
     effect(fn) { cleanup = fn(); },
   });
   assert.equal(registered.path, PREFIX.slice(0, -1));
   assert.equal(typeof registered.handler, 'function');
   cleanup();
   assert.equal(disposed, true);
+});
+
+test('accepted keys sync into the DSH credential store once per value', async t => {
+  const stored = new Map();
+  let resolveCalls = 0;
+  const credentials = {
+    async resolve(ref) {
+      resolveCalls++;
+      assert.equal(ref, 'WB2API_GATEWAY_API_KEY');
+      return stored.has(ref) ? { value: stored.get(ref), source: 'file' } : undefined;
+    },
+    async set(ref, value) { stored.set(ref, value); },
+  };
+  const backend = await serve(t, (req, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{}');
+  });
+  const ui = await serve(t, createHandler({ backendPort: backend.port }, { onApiKey: keySyncer(credentials) }));
+  const call = async key => {
+    await fetch(ui.url + PREFIX + 'api/overview', {
+      headers: { Authorization: `Bearer ${key}`, Origin: ui.url },
+    });
+    // 同步是 fire-and-forget：等待一轮宏任务让它落定。
+    await new Promise(resolve => setTimeout(resolve, 20));
+  };
+  await call('key-1');
+  assert.equal(stored.get('WB2API_GATEWAY_API_KEY'), 'key-1');
+  await call('key-1');
+  const afterFirst = resolveCalls;
+  await call('key-2');
+  assert.equal(stored.get('WB2API_GATEWAY_API_KEY'), 'key-2');
+  assert.equal(resolveCalls, afterFirst + 1); // 同值整体跳过，新值解析后写入
 });

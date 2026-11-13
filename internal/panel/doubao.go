@@ -14,6 +14,7 @@ import (
 )
 
 func (p *Panel) doubaoRoutes() {
+	p.webLoginRoutes("doubao")
 	p.mux.HandleFunc("POST /panel/api/doubao/accounts", p.withAuth(p.doubaoAdd))
 	p.mux.HandleFunc("POST /panel/api/doubao/accounts/{uid}/{action}", p.withAuth(p.doubaoAction))
 	p.mux.HandleFunc("POST /panel/api/doubao/balance_all", p.withAuth(p.doubaoRefreshAll))

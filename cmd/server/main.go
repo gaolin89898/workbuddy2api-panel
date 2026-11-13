@@ -40,6 +40,10 @@ func stateSibling(stateFile, name string) string {
 }
 
 func main() {
+	// windowsgui 构建下从终端手动启动时，先把日志接回父进程控制台；其余拉起
+	// 路径（计划任务 / VBS / WMI / 双击）没有控制台，进程保持完全静默无窗口。
+	attachParentConsole()
+	flag.CommandLine.SetOutput(os.Stderr)
 	cfgPath := flag.String("config", "config.json", "配置文件路径（默认当前目录 config.json；不存在时自动生成推荐配置）")
 	gateway := flag.Bool("gateway", false, "启用 WorkBuddy API 转发（默认仅运行账号管理与每日签到）")
 	desktop := flag.Bool("desktop", desktopDefault, "在桌面窗口中打开账号管理")

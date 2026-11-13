@@ -1,9 +1,9 @@
 {
   "name": "dsh-workbuddy-accounts",
-  "version": "0.1.47",
+  "version": "0.1.55",
   "private": true,
   "type": "module",
-  "description": "AI 工具箱：WorkBuddy、Trae、Qoder、MiniMax、Loomy、Antigravity 的账号与多平台网关管理。",
+  "description": "AI 工具箱：WorkBuddy、Trae、Qoder、MiniMax、Loomy、Antigravity、豆包 的账号与多平台网关管理。",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",

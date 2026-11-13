@@ -14,18 +14,23 @@ let version = 0, queueTimer;
 const abort = new AbortController();
 const api = (path, options = {}) => props.model.api(path, { ...options, signal: abort.signal });
 const supported = computed(() => props.model.provider === 'workbuddy' && props.model.platformSelection === 'workbuddy-cn');
-const personal = computed(() => supported.value ? props.model.workbuddyAccounts.filter(a => !a.disabled && !a.enterprise && a.realm !== 'global' && a.benefits_supported !== false) : []);
-const unsupportedAccounts = computed(() => supported.value ? props.model.workbuddyAccounts.filter(a => a.benefits_supported === false) : []);
+const personal = computed(() => supported.value ? props.model.accounts.filter(a => !a.disabled && !a.enterprise && a.benefits_supported !== false) : []);
+const unsupportedAccounts = computed(() => supported.value ? props.model.accounts.filter(a => a.benefits_supported === false) : []);
 const options = personal;
 const account = computed(() => options.value.find(a => a.uid === uid.value));
-const workbuddyReady = computed(() => supported.value && props.model.workbuddyAccounts.length > 0);
+const workbuddyReady = computed(() => supported.value && props.model.accounts.length > 0);
 const completedTasks = computed(() => tasks.value.filter(t => t.claimed).length);
 const taskProgress = computed(() => tasks.value.length ? completedTasks.value / tasks.value.length : 0);
 const availableTiers = computed(() => (rewards.value?.streak?.redemption_status?.tiers || []).filter(canRedeem));
 const canCompensate = computed(() => rewards.value?.compensation?.active && !rewards.value.compensation.claimed && rewards.value.compensation.credit_num > 0);
 const claimCount = computed(() => availableTiers.value.length + Number(!!canCompensate.value));
 const rewardCredits = computed(() => availableTiers.value.reduce((sum, t) => sum + Number(t.credit || 0), 0) + (canCompensate.value ? Number(rewards.value.compensation.credit_num) : 0));
-const coverage = computed(() => props.model.workbuddyAccounts.map(a => ({ ...a, pendingTasks: scan.value?.accounts?.find(item => item.uid === a.uid) })));
+const scanAccounts = computed(() => {
+  const uids = new Set(props.model.accounts.map(a => a.uid));
+  return (scan.value?.accounts || []).filter(a => uids.has(a.uid));
+});
+const scanPending = computed(() => scanAccounts.value.reduce((sum, a) => sum + (a.growth || []).length, 0));
+const coverage = computed(() => props.model.accounts.map(a => ({ ...a, pendingTasks: scanAccounts.value.find(item => item.uid === a.uid) })));
 const taskRows = computed(() => tasks.value.filter(t => (!search.value || (t.title + ' ' + t.task_code).toLowerCase().includes(search.value.toLowerCase())) && (filter.value === 'all' || filter.value === 'claimable' && t.claimable || filter.value === 'claimed' && t.claimed || filter.value === 'pending' && !t.claimed && !t.claimable || filter.value === 'error' && queue.value.items?.some(i => i.uid === uid.value && i.code === t.task_code && i.status === 'error'))));
 const done = computed(() => (queue.value.items || []).filter(i => ['done', 'skipped', 'error'].includes(i.status)).length);
 const statusName = value => ({ pending: '等待执行', running: '执行中', done: '已完成', skipped: '已跳过', error: '失败', locked: '未解锁', claimed: '已领取', redeemed: '已兑换', available: '可兑换', unlocked: '可兑换', claimable: '可兑换' })[value] || value || '--';
@@ -100,27 +105,35 @@ watch(supported, value => {
 }, { immediate: true });
 onBeforeUnmount(() => { ++version; clearTimeout(queueTimer); abort.abort(); });
 async function scanTasks() {
-  if (working.value) return;
+  if (working.value || !supported.value || !personal.value.length) return;
+  const platform = props.model.platformSelection;
   working.value = true;
-  try { scan.value = await api('tasks/scan_all', { method: 'POST' }); }
-  catch (cause) { error.value = cause.message; }
+  try {
+    const response = await api('tasks/scan_all', { method: 'POST' });
+    if (platform === props.model.platformSelection) scan.value = response;
+  }
+  catch (cause) { if (platform === props.model.platformSelection && cause.name !== 'AbortError') error.value = cause.message; }
   finally { working.value = false; }
 }
 async function execute(operation, label, payload = {}) {
-  if (working.value || queue.value.running) return;
-  const selected = uid.value, section = props.section, provider = props.model.provider;
+  if (working.value || queue.value.running || !supported.value || (operation === 'queue' ? !personal.value.length : !account.value)) return;
+  const selected = uid.value, section = props.section, platform = props.model.platformSelection;
   working.value = true; error.value = ''; confirmation.value = null;
   try {
     const response = operation === 'queue'
       ? await api('tasks/run_queue', { method: 'POST', body: JSON.stringify({ growth: true, concurrency: concurrency.value }) })
       : await api(section === 'tasks' ? `accounts/${encodeURIComponent(selected)}/tasks/${operation}` : `benefits/accounts/${encodeURIComponent(selected)}/rewards`, { method: 'POST', body: JSON.stringify(payload) });
-    if (operation === 'queue') { await pollQueue(); result.value = response.message || '任务队列已启动'; return; }
+    if (operation === 'queue') {
+      await pollQueue();
+      if (section === props.section && platform === props.model.platformSelection) result.value = response.message || '任务队列已启动';
+      return;
+    }
     if (section === 'tasks' && operation !== 'accept') {
       try { await api(`accounts/${encodeURIComponent(selected)}/balance`, { method: 'POST' }); }
       catch { Message.warning('操作已返回，但余额刷新失败，请稍后刷新积分'); }
     }
     await props.model.refreshOverview();
-    if (section === props.section && selected === uid.value && provider === props.model.provider) {
+    if (section === props.section && selected === uid.value && platform === props.model.platformSelection) {
       await load();
       result.value = response.claim_error || response.claimable === false && operation === 'auto' && !response.claimed
         ? response.claim_error || response.message || '任务尚未确认完成，请稍后刷新'
@@ -128,7 +141,7 @@ async function execute(operation, label, payload = {}) {
     }
     if (response.claim_error || response.claimable === false && operation === 'auto' && !response.claimed) Message.warning(response.message || '任务尚未确认完成');
     else Message.success(response.message || label + '成功');
-  } catch (cause) { if (cause.name !== 'AbortError') error.value = cause.message; }
+  } catch (cause) { if (section === props.section && platform === props.model.platformSelection && cause.name !== 'AbortError') error.value = cause.message; }
   finally { working.value = false; }
 }
 function confirmTask(task) { confirmation.value = task ? { title: '执行任务', task } : { title: '执行全部待办' }; }
@@ -275,7 +288,7 @@ watch([() => props.section, workbuddyReady], ([section, ready]) => { if (section
                 <div v-for="item in coverage" :key="item.uid" class="coverage-line"><div class="inline-between"><span class="account-caption"><span class="account-initial">{{ model.accountName(item).slice(0, 1) }}</span><span>{{ model.accountName(item) }}</span></span><small>{{ item.uid === uid && tasks.length ? completedTasks + ' / ' + tasks.length : item.disabled ? '已停用' : !personal.some(a => a.uid === item.uid) ? '暂不支持' : item.pendingTasks?.growth_error ? '查询失败' : item.pendingTasks ? (item.pendingTasks.growth || []).length + ' 项待办' : '待扫描' }}</small></div><a-progress v-if="item.uid === uid && tasks.length" :percent="taskProgress" :show-text="false" /></div>
                 <div class="benefit-side-note"><icon-info-circle />{{ personal.length }} 个账号可参与个人任务</div>
               </section>
-              <section v-if="scan" class="benefit-side-section"><h2>全部账号待办 · {{ scan.pending_count || 0 }} 项</h2><div v-for="item in (scan.accounts || []).filter(a => a.uid)" :key="item.uid" class="scan-line"><strong>{{ item.nickname || item.uid }}</strong><span :class="{ 'danger-text': item.growth_error }">{{ item.growth_error || ((item.growth || []).length + ' 项待办') }}</span></div></section>
+              <section v-if="scan" class="benefit-side-section"><h2>当前应用待办 · {{ scanPending }} 项</h2><div v-for="item in scanAccounts" :key="item.uid" class="scan-line"><strong>{{ item.nickname || item.uid }}</strong><span :class="{ 'danger-text': item.growth_error }">{{ item.growth_error || ((item.growth || []).length + ' 项待办') }}</span></div></section>
             </aside>
           </div>
         </template>

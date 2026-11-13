@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { Button as AButton, Tooltip as ATooltip } from '@arco-design/web-vue';
 import { IconUserGroup, IconCalendar, IconFile, IconSafe, IconMoon, IconSun, IconClockCircle, IconCheckSquare, IconGift, IconThunderbolt, IconBook, IconCalendarClock, IconCopy } from '@arco-design/web-vue/es/icon';
-import { formatHour, KEY_STORAGE } from '../useAccounts';
+import { formatHour } from '../useAccounts';
 
 const props = defineProps({ model: Object, view: String, dark: Boolean, hostTheme: Boolean });
 const emit = defineEmits(['navigate', 'key', 'theme']);
@@ -17,7 +17,7 @@ const tabs = computed(() => [...[
   { id: 'logs', name: '运行日志', icon: IconFile },
 ], ...(props.model.capabilities?.gateway ? [{ id: 'gateway', name: '网关', icon: IconThunderbolt }] : [])]);
 // API Access 卡（设计稿 Sidebar 扩展，仅网关页显示）：端点与密钥复制。
-const apiKey = computed(() => props.model.capabilities?.gateway ? (localStorage.getItem(KEY_STORAGE) || '') : '');
+const apiKey = computed(() => props.model.managementKey || '');
 function copyKey() {
   navigator.clipboard.writeText(apiKey.value).then(() => {}).catch(() => {});
 }

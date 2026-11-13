@@ -25,7 +25,11 @@ type Client struct {
 }
 
 func NewClient() *Client {
-	return &Client{HTTP: &http.Client{Timeout: 25 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, OAuthClientID: strings.TrimSpace(os.Getenv("WB2A_ANTIGRAVITY_CLIENT_ID")), OAuthClientSecret: strings.TrimSpace(os.Getenv("WB2A_ANTIGRAVITY_CLIENT_SECRET")), Base: BaseURL, TokenURL: "https://oauth2.googleapis.com/token", UserInfoURL: "https://www.googleapis.com/oauth2/v2/userinfo"}
+	id, secret := strings.TrimSpace(os.Getenv("WB2A_ANTIGRAVITY_CLIENT_ID")), strings.TrimSpace(os.Getenv("WB2A_ANTIGRAVITY_CLIENT_SECRET"))
+	if id == "" && secret == "" {
+		id, secret = defaultClientID, defaultClientSecret
+	}
+	return &Client{HTTP: &http.Client{Timeout: 25 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, OAuthClientID: id, OAuthClientSecret: secret, Base: BaseURL, TokenURL: "https://oauth2.googleapis.com/token", UserInfoURL: "https://www.googleapis.com/oauth2/v2/userinfo"}
 }
 
 func (c *Client) request(ctx context.Context, method, endpoint, token string, body []byte, contentType string, result any) error {

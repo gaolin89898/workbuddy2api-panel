@@ -3,7 +3,7 @@
 //
 // 账号管理与网关共用同一份装配：
 //   - WorkBuddy Pool 与上游客户端（两种模式指向同一个实例）；
-//   - Trae / Qoder / MiniMax / Loomy Store（每个平台只创建一次）；
+//   - Trae / Qoder / MiniMax / Loomy / Antigravity / Doubao Store（每个平台只创建一次）；
 //   - 积分历史、面板日志环形缓冲、签到设置（account-settings.json）与调度器；
 //   - HTTP 服务与关闭流程（先停排程、刷池、再排空存储写入）。
 //
@@ -193,13 +193,12 @@ func newAppRuntime(configPath string, cfg *Config, gateway bool) (*appRuntime, e
 	}
 
 	// 签到入口（自动排程 / 启动补签 / 面板手动触发共用）：
-	// WorkBuddy 池签到由 scheduler 负责，旁路平台经 CheckinHook 同批执行。
+	// WorkBuddy 池签到由 scheduler 负责，Trae / MiniMax 经 CheckinHook 同批执行（Loomy 不做签到）。
 	runSideCheckin := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 		rt.trae.RunAll(ctx, "checkin")
 		rt.minimax.RunAll(ctx, "checkin")
-		rt.loomy.RunAll(ctx, "checkin")
 	}
 	// 调度器：签到永远按 account-settings.json；网关任务族（旅行/活跃/保活/
 	// 夜猫子/成长/连登）仅网关模式按 config 生效——账号模式恒关，且迁移已把
@@ -373,7 +372,7 @@ func logSchedulerStatus(rt *appRuntime) {
 	if !s.Enabled {
 		log.Printf("签到已禁用（签到设置 checkin_enabled=false）")
 	} else {
-		log.Printf("签到已启用：%v 点（WorkBuddy + Trae + MiniMax + Loomy 同批；Qoder 活动轮次独立排程）", s.Hours)
+		log.Printf("签到已启用：%v 点（WorkBuddy + Trae + MiniMax 同批；Qoder 活动轮次独立排程）", s.Hours)
 	}
 	if !rt.gateway {
 		log.Printf("账号管理模式：/v1/* 转发、Redis 镜像、用量记录未启用（-gateway 开启网关）")

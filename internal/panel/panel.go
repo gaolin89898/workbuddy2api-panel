@@ -113,6 +113,7 @@ type Panel struct {
 	traeLogin    *traeLoginManager
 	qoderLogin   *qoderLoginManager
 	minimaxLogin *minimaxLoginManager
+	webLogin     *webLoginManager
 	desktop      *desktop.Manager
 
 	// authMu/sessions 面板登录会话（token → 过期时刻），内存态：重启后需重新登录。
@@ -189,6 +190,7 @@ func New(cfg Config) *Panel {
 		traeLogin:    newTraeLoginManager(),
 		qoderLogin:   newQoderLoginManager(),
 		minimaxLogin: newMinimaxLoginManager(),
+		webLogin:     newWebLoginManager(),
 		desktop:      desktop.New(cfg.DesktopDir),
 	}
 	if cfg.Qoder != nil {
@@ -305,6 +307,7 @@ const panelLoginTTL = 7 * 24 * time.Hour
 // authRoutes 注册面板登录（两个模式共用；登录页本身公开）。
 func (p *Panel) authRoutes() {
 	p.mux.HandleFunc("POST /panel/api/auth/login", p.authLogin)
+	p.mux.HandleFunc("GET /panel/api/auth/bootstrap", p.authBootstrap)
 }
 
 func (p *Panel) authLogin(w http.ResponseWriter, r *http.Request) {
@@ -340,12 +343,45 @@ func (p *Panel) authLogin(w http.ResponseWriter, r *http.Request) {
 	p.issueSession(w, r)
 }
 
+// authBootstrap 为本机页面自动连接，并返回实际管理密钥供查看、复制。
+// 本机请求复用桌面操作的来源校验；跨机请求必须已有有效凭证才能读取密钥。
+func (p *Panel) authBootstrap(w http.ResponseWriter, r *http.Request) {
+	panelLogin := p.cfg.PanelUser != "" && p.cfg.PanelPass != ""
+	local := localDesktopRequest(r)
+	key := p.apiKey()
+	available := local || !p.panelAuthEnabled() || p.sessionValid(r) || (key != "" && httpauth.VerifyBearer(r, key))
+	out := map[string]any{"panel_login": panelLogin, "api_key": "", "key_available": available}
+	if available {
+		out["api_key"] = key
+	}
+	// 无 api_key 时也给本机页面一份会话，兼容旧密码配置及要求 Bearer 的 DSH 桥接。
+	if local && key == "" {
+		token, _, err := p.newSession()
+		if err != nil {
+			writeErr(w, 500, "无法连接账号服务")
+			return
+		}
+		out["token"] = token
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, 200, out)
+}
+
 // issueSession 签发 7 天登录会话并清理过期令牌（账号密码与密钥直登共用）。
 func (p *Panel) issueSession(w http.ResponseWriter, r *http.Request) {
-	var raw [32]byte
-	if _, err := rand.Read(raw[:]); err != nil {
+	token, expiry, err := p.newSession()
+	if err != nil {
 		writeErr(w, 500, "无法创建登录会话")
 		return
+	}
+	log.Printf("panel: 登录成功（会话有效期 7 天）")
+	writeJSON(w, 200, map[string]any{"ok": true, "token": token, "expires_at": expiry.Format(time.RFC3339)})
+}
+
+func (p *Panel) newSession() (string, time.Time, error) {
+	var raw [32]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", time.Time{}, err
 	}
 	token := hex.EncodeToString(raw[:])
 	expiry := time.Now().Add(panelLoginTTL)
@@ -358,8 +394,7 @@ func (p *Panel) issueSession(w http.ResponseWriter, r *http.Request) {
 	}
 	p.sessions[token] = expiry
 	p.authMu.Unlock()
-	log.Printf("panel: 登录成功（会话有效期 7 天）")
-	writeJSON(w, 200, map[string]any{"ok": true, "token": token, "expires_at": expiry.Format(time.RFC3339)})
+	return token, expiry, nil
 }
 
 // sessionValid 校验 Bearer 令牌是否为未过期的登录会话。
@@ -651,6 +686,11 @@ func (p *Panel) nicknames() map[string]string {
 // （有错误明细回 502，一个账号都没有回 503）。
 func (p *Panel) models(w http.ResponseWriter, r *http.Request) {
 	supplier := p.cfg.Live.Load().GatewaySupplier
+	// 自动模式：目录只展示第一个有可用账号的应用（优先级与供应应用下拉一致）；
+	// 路由本身不变，仍按模型前缀自动分发。显式选择供应应用时行为不变。
+	if supplier == "" || supplier == "auto" {
+		supplier = p.listingSupplier()
+	}
 	out := make([]map[string]any, 0)
 	var fetchErrs []string
 
@@ -698,7 +738,36 @@ func (p *Panel) models(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusServiceUnavailable, "没有可用账号：请先在面板添加账号再查询")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "models": out})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "supplier": supplier, "models": out})
+}
+
+// listingSupplier 解析自动模式下的目录展示应用：WorkBuddy 国内 → 国际 →
+// Trae → Qoder → MiniMax → Loomy → Antigravity → 豆包，取第一个有启用账号的；
+// 一个都没有时返回 auto，维持原有的全量目录行为。
+func (p *Panel) listingSupplier() string {
+	if len(p.cfg.Pool.AvailableUIDsForRealm("cn")) > 0 {
+		return "workbuddy-cn"
+	}
+	if p.cfg.Upstream != nil && p.cfg.Upstream.GlobalEnabled && len(p.cfg.Pool.AvailableUIDsForRealm("global")) > 0 {
+		return "workbuddy-global"
+	}
+	if p.cfg.Providers != nil {
+		for _, id := range gateway.SupplierPriority {
+			if id == "workbuddy-cn" || id == "workbuddy-global" {
+				continue
+			}
+			src := p.cfg.Providers.Sources[id]
+			if src == nil {
+				continue
+			}
+			for _, a := range src.GatewayAccounts() {
+				if !a.Disabled {
+					return id
+				}
+			}
+		}
+	}
+	return "auto"
 }
 
 // panelModelEntry 构造单个模型条目（两域共用）：id 带 realm 前缀（调用值即显示值），

@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import { hostRuntime } from './hostRuntime';
 import { chinaDate, clockTime } from './dateTime';
@@ -19,7 +19,6 @@ export function accountEdition(account) { return account.provider === 'doubao' ?
 export function accountCredits(account) { return account.balance_known === false ? '--' : formatNumber(account.credits); }
 export function checkinState(account) {
   if (account.provider === 'qoder') return account.checkin_done ? { text: '本轮已领取', kind: 'success' } : account.disabled ? { text: '已暂停', kind: 'muted' } : { text: '本轮待领取', kind: 'warning' };
-  if (account.provider === 'loomy') return account.checkin_done ? { text: '今日已结算', kind: 'success' } : account.disabled ? { text: '已暂停', kind: 'muted' } : { text: '待结算', kind: 'warning' };
   if (account.enterprise || account.realm === 'global' || account.checkin_supported === false) return { text: '不支持签到', kind: 'muted' };
   if (account.checkin_done) return { text: '已签到', kind: 'success' };
   if (account.disabled) return { text: '已暂停', kind: 'muted' };
@@ -107,7 +106,7 @@ export function useAccounts() {
       await Promise.all([refreshDesktop(), refreshOverview()]);
     });
   }
-  const needsKey = ref(false), busy = reactive(new Set()), now = ref(Date.now());
+  const managementKey = ref(''), busy = reactive(new Set()), now = ref(Date.now());
   const addVisible = ref(false), addTab = ref('login'), realm = ref('cn'), addProvider = ref(provider.value);
   const traeDraft = reactive({ nickname: '', session: '', token: '', device_id: '' });
 	const traeExpectedUID = ref('');
@@ -116,11 +115,13 @@ export function useAccounts() {
   const qoderDraft = reactive({ token: '', nickname: '', uid: '' });
   const minimaxDraft = reactive({ credential: '', nickname: '', uid: '', auth_kind: '' });
   const minimaxLogin = reactive({ state: '', url: '', userCode: '', error: '', waiting: false, interval: 3000 });
-  const loomyDraft = reactive({ credential: '', nickname: '', uid: '', account_uid: '' });
+  const loomyLocalError = ref('');
   const emptyAntigravityDraft = () => ({ uid: '', nickname: '', email: '', access_token: '', refresh_token: '', project_id: '' });
   const antigravityDraft = reactive(emptyAntigravityDraft());
   const emptyDoubaoDraft = () => ({ uid: '', nickname: '', cookie: '' });
   const doubaoDraft = reactive(emptyDoubaoDraft());
+  const webLogins = reactive({ antigravity: { state: '', url: '', status: '', error: '', waiting: false }, doubao: { state: '', url: '', status: '', error: '', waiting: false } });
+  const webLoginAttempts = { antigravity: 0, doubao: 0 }, webLoginTimers = {}, webLoginBrowsers = {};
   let minimaxTimer, minimaxAttempt = 0;
   let qoderTimer, qoderAttempt = 0;
   const login = reactive({ state: '', url: '', status: '', error: '', waiting: false });
@@ -177,7 +178,7 @@ export function useAccounts() {
       remaining: minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : `${minutes} 分钟`,
     };
   };
-  const nextRun = computed(() => ['antigravity', 'doubao'].includes(provider.value) ? null : nextRunFor(effectiveHours.value));
+  const nextRun = computed(() => ['antigravity', 'doubao', 'loomy'].includes(provider.value) ? null : nextRunFor(effectiveHours.value));
   // 统一视图的下次签到：不按 Qoder 顺延，即所有平台中最早的可签到时刻。
   const allNextRun = computed(() => nextRunFor([...new Set(schedule.value?.checkin_hours || [])].sort((a, b) => a - b)));
   const expiryEntries = computed(() => accounts.value.flatMap(account =>
@@ -193,7 +194,7 @@ export function useAccounts() {
     const apiBase = hostRuntime.apiBase || new URL(import.meta.env.BASE_URL + 'api/', document.baseURI);
     const response = await hostRuntime.fetchAPI(new URL(path, apiBase), { signal: abort.signal, ...options, headers });
     const data = await response.json().catch(() => ({}));
-    if (response.status === 401) { needsKey.value = true; throw new Error('请填写有效的管理密钥'); }
+    if (response.status === 401) throw new Error('无法自动连接账号服务，请在运行服务的电脑上打开页面后重试');
     if (!response.ok) throw new Error(data.error || `请求失败：HTTP ${response.status}`);
     return data;
   }
@@ -230,23 +231,26 @@ export function useAccounts() {
     try { capabilities.value = await api('capabilities'); } catch { /* 连接横幅统一报错；能力缺失按最低集渲染。 */ }
   }
   async function refreshLogs() { const data = await api('logs'); allLogs.value = data.entries || []; }
-  async function connect(key) {
-    await action('connect', async () => {
-      if (key !== undefined) localStorage.setItem(KEY_STORAGE, key.trim());
-      await refreshOverview();
-      await Promise.all([refreshSettings(), refreshLogs(), refreshDesktop(), refreshCapabilities()]);
-      needsKey.value = false;
-    });
+  async function refreshKey() {
+    const data = await api('auth/bootstrap');
+    if (data.key_available === false) throw new Error('无法读取管理密钥，请在运行服务的电脑上打开页面');
+    if (data.key_available || data.api_key) {
+      managementKey.value = data.api_key || '';
+      localStorage.setItem(KEY_STORAGE, data.token || managementKey.value);
+    }
   }
-  // panelLogin 面板账号密码登录：POST auth/login 换会话令牌，存入与密钥相同的
-  // 本地槽位（后端同时接受 api_key 与会话令牌），随后建立全部数据连接。
-  async function panelLogin(username, password) {
-    return action('connect', async () => {
-      const data = await api('auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-      localStorage.setItem(KEY_STORAGE, data.token);
-      await refreshOverview();
-      await Promise.all([refreshSettings(), refreshLogs(), refreshDesktop(), refreshCapabilities()]);
-      needsKey.value = false;
+  async function connect() {
+    await action('connect', async () => {
+      try {
+        await refreshKey();
+        await refreshOverview();
+        await Promise.all([refreshSettings(), refreshLogs(), refreshDesktop(), refreshCapabilities()]);
+      } catch (cause) {
+        connected.value = false;
+        loading.value = false;
+        error.value = cause.message;
+        throw cause;
+      }
     });
   }
   async function refreshBalances() {
@@ -254,7 +258,7 @@ export function useAccounts() {
       const selected = provider.value;
       const data = await api(apiPrefix(selected) + 'balance_all', { method: 'POST' });
       if (data.errors?.length) Message.warning(data.errors.join('；'));
-      else Message.success(['antigravity', 'doubao'].includes(selected) ? '授权状态已刷新' : '积分刷新完成');
+      else Message.success(selected === 'antigravity' ? '授权状态已刷新' : selected === 'doubao' ? '额度刷新完成' : '积分刷新完成');
       await refreshOverview();
       await refreshLogs();
     });
@@ -273,7 +277,7 @@ export function useAccounts() {
       if (type === 'checkin' && !result.checkin_done) throw new Error(result.checkin_message || '签到未完成');
       if (result.file_error) Message.warning('账号已移除，但本地凭证文件删除失败：' + result.file_error);
       else if (result.balance_error) Message.warning('签到成功，但积分刷新失败：' + result.balance_error);
-      else Message.success({ checkin: '签到成功', balance: ['antigravity', 'doubao'].includes(account.provider) ? '授权状态已刷新' : '积分已刷新', disable: '账号已停用', revive: '账号已启用', pause: '已暂停选号（保号任务照常）', resume: '已恢复参与选号', remove: '账号已移除' }[type]);
+      else Message.success({ checkin: '签到成功', balance: account.provider === 'antigravity' ? '授权状态已刷新' : account.provider === 'doubao' ? '额度已刷新' : '积分已刷新', disable: '账号已停用', revive: '账号已启用', pause: '已暂停选号（保号任务照常）', resume: '已恢复参与选号', remove: '账号已移除' }[type]);
       await refreshOverview();
       await refreshLogs();
     });
@@ -300,6 +304,74 @@ export function useAccounts() {
     stopTraeLogin();
     stopQoderLogin();
     stopMiniMaxLogin();
+    stopWebLogin('antigravity');
+    stopWebLogin('doubao');
+  }
+  function stopWebLogin(selected) {
+    ++webLoginAttempts[selected];
+    clearTimeout(webLoginTimers[selected]);
+    webLoginBrowsers[selected]?.close();
+    delete webLoginBrowsers[selected];
+    const state = webLogins[selected].state;
+    Object.assign(webLogins[selected], { state: '', url: '', status: '', error: '', waiting: false });
+    if (state) api(selected + '/login/cancel?state=' + encodeURIComponent(state), { method: 'POST', keepalive: true, signal: undefined }).catch(() => {});
+  }
+  async function startWebLogin(selected) {
+    if (!['antigravity', 'doubao'].includes(selected)) return;
+    if (busy.has(selected + '-login')) return;
+    stopWebLogin(selected);
+    const attempt = webLoginAttempts[selected], draft = selected === 'antigravity' ? antigravityDraft : doubaoDraft;
+    // Open synchronously with the click so browsers permit the authorization tab.
+    const browser = selected === 'antigravity' ? hostRuntime.prepareBrowserLogin() : null;
+    if (browser) webLoginBrowsers[selected] = browser;
+    return action(selected + '-login', async () => {
+      let state;
+      try {
+        const data = await api(selected + '/login/start', { method: 'POST', body: JSON.stringify({ uid: draft.uid, nickname: draft.nickname }) });
+        state = data.state;
+        if (attempt !== webLoginAttempts[selected] || !addVisible.value || addProvider.value !== selected) {
+          browser?.close();
+          api(selected + '/login/cancel?state=' + encodeURIComponent(state), { method: 'POST' }).catch(() => {}); return;
+        }
+        let url = '';
+        if (selected === 'antigravity') {
+          const target = new URL(data.url);
+          if (target.origin !== 'https://accounts.google.com' || target.pathname !== '/o/oauth2/v2/auth') throw new Error('Google 授权地址无效');
+          url = target.href;
+          browser.open(url);
+        }
+        Object.assign(webLogins[selected], { state, url, waiting: true, status: selected === 'antigravity' ? '等待 Google 网页授权' : '请在新窗口完成豆包登录' });
+        webLoginTimers[selected] = setTimeout(() => pollWebLogin(selected, attempt), 1500);
+      } catch (cause) {
+        browser?.close();
+        if (state) api(selected + '/login/cancel?state=' + encodeURIComponent(state), { method: 'POST' }).catch(() => {});
+        if (attempt === webLoginAttempts[selected]) Object.assign(webLogins[selected], { error: cause.message, waiting: false });
+        throw cause;
+      }
+    });
+  }
+  async function pollWebLogin(selected, attempt) {
+    const current = webLogins[selected];
+    if (attempt !== webLoginAttempts[selected] || !current.state || !addVisible.value) return;
+    try {
+      const result = await api(selected + '/login/poll?state=' + encodeURIComponent(current.state));
+      if (attempt !== webLoginAttempts[selected] || !addVisible.value) return;
+      if (result.done) {
+        if (result.status !== 'success') throw new Error(result.error || '授权未完成，请重试');
+        closeAdd(); selectProvider(selected); Message.success((selected === 'doubao' ? '豆包' : 'Antigravity') + '授权成功，账号已保存');
+        await refreshOverview(); await refreshLogs();
+      } else {
+        if (result.status === 'saving') current.status = '已完成登录，正在验证并保存账号…';
+        webLoginTimers[selected] = setTimeout(() => pollWebLogin(selected, attempt), 1500);
+      }
+    } catch (cause) {
+      if (attempt === webLoginAttempts[selected]) {
+        const state = current.state;
+        webLoginBrowsers[selected]?.close();
+        Object.assign(current, { waiting: false, error: cause.message });
+        if (state) api(selected + '/login/cancel?state=' + encodeURIComponent(state), { method: 'POST' }).catch(() => {});
+      }
+    }
   }
   function stopTraeLogin() {
     ++traeLoginAttempt;
@@ -368,19 +440,18 @@ export function useAccounts() {
     Object.assign(antigravityDraft, emptyAntigravityDraft()); Object.assign(doubaoDraft, emptyDoubaoDraft());
     stopLogin();
     addTab.value = tab;
-    addProvider.value = provider.value;
+    addProvider.value = provider.value === 'loomy' ? 'workbuddy' : provider.value;
     if (provider.value === 'workbuddy') realm.value = workbuddyRealm.value;
 	traeExpectedUID.value = '';
     Object.assign(traeDraft, { nickname: '', session: '', token: '', device_id: '' });
     Object.assign(qoderDraft, { token: '', nickname: '', uid: '' });
     Object.assign(minimaxDraft, { credential: '', nickname: '', uid: '', auth_kind: '' });
     Object.assign(minimaxLogin, { state: '', url: '', userCode: '', error: '', waiting: false, interval: 3000 });
-    Object.assign(loomyDraft, { credential: '', nickname: '', uid: '', account_uid: '' });
     importFile.value = null;
     importResult.value = null;
     addVisible.value = true;
   }
-  function closeAdd() { stopLogin(); addVisible.value = false; Object.assign(antigravityDraft, emptyAntigravityDraft()); Object.assign(doubaoDraft, emptyDoubaoDraft()); Object.assign(traeDraft, { nickname: '', session: '', token: '', device_id: '' }); Object.assign(qoderDraft, { token: '', nickname: '', uid: '' }); Object.assign(minimaxDraft, { credential: '', nickname: '', uid: '', auth_kind: '' }); Object.assign(loomyDraft, { credential: '', nickname: '', uid: '', account_uid: '' }); }
+  function closeAdd() { stopLogin(); addVisible.value = false; Object.assign(antigravityDraft, emptyAntigravityDraft()); Object.assign(doubaoDraft, emptyDoubaoDraft()); Object.assign(traeDraft, { nickname: '', session: '', token: '', device_id: '' }); Object.assign(qoderDraft, { token: '', nickname: '', uid: '' }); Object.assign(minimaxDraft, { credential: '', nickname: '', uid: '', auth_kind: '' }); }
   function updateDoubao(account) {
     openAdd(); addProvider.value = 'doubao';
     Object.assign(doubaoDraft, { uid: account.uid, nickname: account.nickname || '' });
@@ -451,28 +522,25 @@ export function useAccounts() {
     Object.assign(minimaxLogin, { state: '', url: '', userCode: '', error: '', waiting: false, interval: 3000 });
     if (state) api('minimax/login/cancel?state=' + encodeURIComponent(state), { method: 'POST', keepalive: true, signal: undefined }).catch(() => {});
   }
-  function updateLoomy(account) {
-    openAdd(); addProvider.value = 'loomy';
-    loomyDraft.uid = account.uid; loomyDraft.nickname = account.nickname || ''; loomyDraft.account_uid = account.account_uid || '';
-  }
-  async function addLoomy() {
-    return action('loomy-add', async () => {
-      const result = await api('loomy/accounts', { method: 'POST', body: JSON.stringify(loomyDraft) });
-      closeAdd(); selectProvider('loomy'); Message.success('Loomy 账号已添加或更新');
-      if (result.warnings?.length) Message.warning(result.warnings.join('；'));
-      await refreshOverview();
-      await refreshLogs();
-    });
-  }
   async function importLoomyLocal() {
     return action('loomy-import', async () => {
-      const result = await api('loomy/local_import', { method: 'POST' });
-      closeAdd(); selectProvider('loomy'); Message.success('Loomy 本机会话已导入');
-      if (result.warnings?.length) Message.warning(result.warnings.join('；'));
+      loomyLocalError.value = '';
+      try {
+        const result = await api('loomy/local_import', { method: 'POST' });
+        if (result.warnings?.length) Message.warning(result.warnings.join('；'));
+      } catch (cause) {
+        if (cause.name !== 'AbortError') loomyLocalError.value = cause.message;
+        throw cause;
+      }
+      // A poll started before the local read may still contain the old account list.
+      if (overviewFlight) await overviewFlight.catch(() => {});
       await refreshOverview();
       await refreshLogs();
     });
   }
+  watch([provider, connected], ([selected, ready]) => {
+    if (selected === 'loomy' && ready) importLoomyLocal().catch(() => {});
+  });
   async function startMiniMaxLogin() {
     stopMiniMaxLogin();
     const attempt = minimaxAttempt;
@@ -620,20 +688,21 @@ export function useAccounts() {
     connect().catch(() => {});
     clockTimer = setInterval(() => { now.value = Date.now(); }, 30000);
     refreshTimer = setInterval(() => {
-      if (document.hidden || needsKey.value) return;
+      if (document.hidden || !connected.value) return;
       Promise.allSettled([refreshOverview(), refreshLogs(), refreshDesktop()]);
     }, 5000);
   });
   onBeforeUnmount(() => { stopLogin(); clearInterval(refreshTimer); clearInterval(clockTimer); abort.abort(); });
   return {
 	api,
-    accounts, allLogs, logs, overview, schedule, connected, loading, error, needsKey, busy, now, capabilities,
+    accounts, allLogs, logs, overview, schedule, connected, loading, error, managementKey, refreshKey, busy, now, capabilities,
     desktopClients, desktopJob, desktopError, desktopBusy, desktopClient, isCurrentDesktop, isSwitchingDesktop, switchReason, switchDesktop, captureDesktop,
     provider, platformSelection, workbuddyRealm, providerName, selectProvider, workbuddyAccounts, traeAccounts, addProvider, traeDraft, traeExpectedUID, addTrae, importTrae, updateTrae,
     qoderAccounts, qoderLogin, qoderDraft, startQoderLogin, stopQoderLogin, addQoder, updateQoder, effectiveHours,
     minimaxAccounts, minimaxDraft, addMiniMax, updateMiniMax, minimaxLogin, startMiniMaxLogin, stopMiniMaxLogin,
-    loomyAccounts, loomyDraft, addLoomy, importLoomyLocal, updateLoomy,
+    loomyAccounts, loomyLocalError, importLoomyLocal,
     doubaoAccounts, doubaoDraft, addDoubao, updateDoubao,
+    webLogins, startWebLogin, stopWebLogin,
     antigravityAccounts, antigravityDraft, addAntigravity, importAntigravity, updateAntigravity,
     traeLogin, checkTraeLoginAvailable, startTraeLogin, stopTraeLogin,
     remarks, accountName, eligible, signed, pending, credits, totalCredits, unknownBalances, todayLogs,
@@ -641,6 +710,6 @@ export function useAccounts() {
     recentActivity, nextRun, expiryEntries, addVisible, addTab, realm, login,
     importFile, importResult, updatedAt, savedAt, connect, refreshOverview, refreshLogs,
     refreshBalances, checkinAll, accountAction, saveRemark, saveSchedule,
-    openAdd, closeAdd, startLogin, importAccounts, resetLogin: stopLogin, panelLogin,
+    openAdd, closeAdd, startLogin, importAccounts, resetLogin: stopLogin,
   };
 }

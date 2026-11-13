@@ -34,6 +34,9 @@ func SupplierAllowsModel(supplier, model string) bool {
 	}
 }
 
+// SupplierPriority 自动模式目录展示的应用优先级，与前端供应应用下拉顺序一致。
+var SupplierPriority = []string{"workbuddy-cn", "workbuddy-global", "trae", "qoder", "minimax", "loomy", "antigravity", "doubao"}
+
 // ResolveSupplierModel accepts bare names for the selected application, while
 // rejecting an explicit model from another application instead of falling back.
 func ResolveSupplierModel(supplier, model string) (string, error) {

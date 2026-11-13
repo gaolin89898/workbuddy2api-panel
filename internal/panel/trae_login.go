@@ -259,6 +259,9 @@ func (p *Panel) traeLoginCancel(w http.ResponseWriter, r *http.Request) {
 
 // Close cancels interactive login windows when the server shuts down.
 func (p *Panel) Close() {
+	if p.webLogin != nil {
+		p.webLogin.close()
+	}
 	if p.desktop != nil {
 		p.desktop.Close()
 	}

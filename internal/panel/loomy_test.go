@@ -36,9 +36,6 @@ func TestLoomyRoutesGuarding(t *testing.T) {
 	if w := call(bare, "POST", "/panel/api/loomy/accounts", `{}`, true, loopback); w.Code != 501 {
 		t.Fatalf("unwired accounts: %d", w.Code)
 	}
-	if w := call(bare, "POST", "/panel/api/loomy/checkin_all", ``, true, loopback); w.Code != 501 {
-		t.Fatalf("unwired checkin_all: %d", w.Code)
-	}
 	// 粘贴凭证表单必须严格 JSON 且拒绝未知字段（不触网）。
 	if w := call(p, "POST", "/panel/api/loomy/accounts", `{} {}`, true, loopback); w.Code != 400 {
 		t.Fatalf("accepted trailing JSON: %d", w.Code)

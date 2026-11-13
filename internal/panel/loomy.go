@@ -19,7 +19,6 @@ func (p *Panel) loomyRoutes() {
 	p.mux.HandleFunc("POST /panel/api/loomy/accounts", p.withAuth(p.loomyAdd))
 	p.mux.HandleFunc("POST /panel/api/loomy/local_import", p.withAuth(p.loomyLocalImport))
 	p.mux.HandleFunc("POST /panel/api/loomy/accounts/{uid}/{action}", p.withAuth(p.loomyAction))
-	p.mux.HandleFunc("POST /panel/api/loomy/checkin_all", p.withAuth(p.loomyCheckinAll))
 	p.mux.HandleFunc("POST /panel/api/loomy/balance_all", p.withAuth(p.loomyBalanceAll))
 }
 func (p *Panel) loomyAccounts() []loomy.Status {
@@ -94,7 +93,7 @@ func (p *Panel) loomyAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	action := r.PathValue("action")
-	if action != "checkin" && action != "balance" && action != "remove" && action != "disable" && action != "revive" {
+	if action != "balance" && action != "remove" && action != "disable" && action != "revive" {
 		http.NotFound(w, r)
 		return
 	}
@@ -111,18 +110,6 @@ func (p *Panel) loomyAction(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("loomy: %s 完成", action)
 	writeJSON(w, 200, map[string]any{"ok": true, "account": a, "checkin_done": a.CheckinDone, "balance_error": warning})
-}
-func (p *Panel) loomyCheckinAll(w http.ResponseWriter, r *http.Request) {
-	if !p.loomyReady(w) {
-		return
-	}
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-		defer cancel()
-		p.cfg.Loomy.RunAll(ctx, "checkin")
-	}()
-	log.Printf("loomy: 手动签到已开始")
-	writeJSON(w, 200, map[string]any{"ok": true, "started": true})
 }
 func (p *Panel) loomyBalanceAll(w http.ResponseWriter, r *http.Request) {
 	if !p.loomyReady(w) {

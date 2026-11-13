@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { Button as AButton, Empty as AEmpty, Select as ASelect, Option as AOption } from '@arco-design/web-vue';
 import { IconDownload, IconRefresh } from '@arco-design/web-vue/es/icon';
 import { formatNumber, chinaDate, accountEdition, accountCredits } from '../useAccounts';
+import { formatDateTime } from '../dateTime';
 
 // BillingView 积分明细（设计稿 BILLING · 积分明细）：Stats 横向统计条 + 左流水
 // （Ledger：Segments 筛选 + 类型/到期列）+ 右侧栏（按账号比例条 + 到期批次分段条）。
@@ -11,15 +12,17 @@ const props = defineProps({ model: Object });
 const creditLimit = ref(500), creditLoading = ref(false), creditEntries = ref([]);
 const accountFilter = ref(''), flowFilter = ref('all');
 const accounts = computed(() => props.model.accounts);
-const historySupported = computed(() => props.model.provider === 'workbuddy');
-// 旧账本未标注品牌，均为 WorkBuddy 流水；不能仅按 UID 匹配其他品牌。
-const providerEntries = computed(() => creditEntries.value.filter(entry => (entry.provider || 'workbuddy') === props.model.provider));
+const historySupported = computed(() => ['workbuddy', 'trae', 'qoder', 'minimax', 'loomy'].includes(props.model.provider));
+// 旧账本未标注品牌，均为 WorkBuddy 流水；WorkBuddy 按当前地区账号 UID 隔离。
+const providerEntries = computed(() => creditEntries.value.filter(entry =>
+  (entry.provider || 'workbuddy') === props.model.provider && accounts.value.some(account => account.uid === entry.uid)
+));
 const totalCredits = computed(() => accounts.value.reduce((sum, a) => sum + Number(a.credits || 0), 0));
 const totalCapacity = computed(() => accounts.value.reduce((sum, a) => sum + Number(a.credits_total || 0), 0));
 const balanceUnknown = computed(() => accounts.value.length > 0 && accounts.value.every(a => a.balance_known === false));
 const nicknameOf = uid => accounts.value.find(a => a.uid === uid)?.nickname || uid.slice(0, 8);
 const nameOf = account => props.model.accountName(account);
-watch(() => props.model.provider, () => { accountFilter.value = ''; flowFilter.value = 'all'; }, { flush: 'sync' });
+watch(() => props.model.platformSelection, () => { accountFilter.value = ''; flowFilter.value = 'all'; loadCredit(); }, { flush: 'sync' });
 
 // 到期批次：overview 快照逐包展开（与首页到期提醒同口径），按到期时间升序。
 const expiryRows = computed(() => accounts.value.flatMap(account =>
@@ -42,7 +45,7 @@ const earliestExpiryByUid = computed(() => {
 });
 async function loadCredit() {
   creditLoading.value = true;
-  try { const data = await props.model.api('credit_history?limit=' + creditLimit.value); creditEntries.value = data.entries || []; }
+  try { const data = await props.model.api('credit_history?limit=' + creditLimit.value + '&provider=' + encodeURIComponent(props.model.provider)); creditEntries.value = data.entries || []; }
   catch { creditEntries.value = []; }
   finally { creditLoading.value = false; }
 }
@@ -56,22 +59,32 @@ const flowCounts = computed(() => ({
   expiring: expiringSoon.value.length,
 }));
 // 本月（北京时间）收入 / 消耗合计。
+const monthEntries = computed(() => {
+  const month = chinaDate(props.model.now).slice(0, 7);
+  return providerEntries.value.filter(entry => chinaDate(entry.time).slice(0, 7) === month);
+});
 const monthDelta = computed(() => {
-  const month = chinaDate().slice(0, 7);
   let income = 0, expense = 0, incomeCount = 0, expenseCount = 0;
-  for (const entry of providerEntries.value) {
-    if (chinaDate(entry.time).slice(0, 7) !== month) continue;
+  for (const entry of monthEntries.value) {
     if (Number(entry.delta) > 0) { income += Number(entry.delta); incomeCount++; }
     else { expense += Number(entry.delta); expenseCount++; }
   }
   return { income, expense, incomeCount, expenseCount };
 });
 // 按账号对比 + 比例条（余额占总额比）。
-const accountSummary = computed(() => accounts.value.map(account => ({
-  account, credits: Number(account.credits || 0),
-  income: providerEntries.value.filter(e => e.uid === account.uid && e.delta > 0 && chinaDate(e.time).slice(0, 7) === chinaDate().slice(0, 7)).reduce((sum, e) => sum + Number(e.delta), 0),
-  expense: providerEntries.value.filter(e => e.uid === account.uid && e.delta < 0 && chinaDate(e.time).slice(0, 7) === chinaDate().slice(0, 7)).reduce((sum, e) => sum + Number(e.delta), 0),
-})).sort((a, b) => b.credits - a.credits));
+const accountSummary = computed(() => {
+  const totals = new Map();
+  for (const entry of monthEntries.value) {
+    const total = totals.get(entry.uid) || { income: 0, expense: 0 };
+    if (entry.delta > 0) total.income += Number(entry.delta);
+    if (entry.delta < 0) total.expense += Number(entry.delta);
+    totals.set(entry.uid, total);
+  }
+  return accounts.value.map(account => ({
+    account, credits: Number(account.credits || 0),
+    income: totals.get(account.uid)?.income || 0, expense: totals.get(account.uid)?.expense || 0,
+  })).sort((a, b) => b.credits - a.credits);
+});
 function shareOf(credits) { return totalCredits.value > 0 ? Math.max(3, Math.round(credits / totalCredits.value * 100)) + '%' : '0%'; }
 // 到期分段条：30 天内按周（0-7 / 8-15 / 16-23 / 24-30 天）分四段。
 const expiryStack = computed(() => {
@@ -90,7 +103,7 @@ const recentDelta = computed(() => {
 function exportCsv() {
   const header = '时间,账号,类型,变动,变动后余额,到期,UID';
   const lines = creditRows.value.map(entry => [
-    new Date(entry.time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }),
+    formatDateTime(entry.time),
     (entry.account || nicknameOf(entry.uid)).replace(/,/g, '，'),
     entry.delta > 0 ? '收入' : '消耗', entry.delta, entry.after,
     earliestExpiryByUid.value[entry.uid] || '', entry.uid,
@@ -107,17 +120,12 @@ onMounted(loadCredit);
 </script>
 
 <template>
-  <section class="billing-view">
+  <section class="billing-view" aria-label="积分明细">
     <header class="page-heading">
-      <div>
-        <div class="eyebrow">BILLING · 积分明细</div>
-        <h1>积分明细</h1>
-        <p>余额、到期批次与每一笔积分变动</p>
-      </div>
-      <div class="log-heading-actions">
+      <div class="page-toolbar"><slot name="platform-switcher" /><div class="log-heading-actions">
         <a-button :disabled="!creditRows.length" @click="exportCsv"><template #icon><icon-download /></template>导出明细</a-button>
         <a-button :loading="creditLoading" @click="loadCredit"><template #icon><icon-refresh /></template>刷新积分</a-button>
-      </div>
+      </div></div>
     </header>
 
     <section class="stat-strip">
@@ -133,7 +141,7 @@ onMounted(loadCredit);
     <div class="billing-layout">
       <section class="panel-card ledger-card">
         <header class="ledger-head">
-          <div class="ledger-title"><h2>积分流水</h2><small>每次真实查到余额与上次比对，变动即留痕</small></div>
+          <div class="ledger-title"><h2>积分流水</h2><small>根据已知余额快照记录变化</small></div>
           <div class="filter-tabs" role="group" aria-label="流水分类">
             <button :class="{ active: flowFilter === 'all' }" @click="flowFilter = 'all'">全部 <span>{{ flowCounts.all }}</span></button>
             <button :class="{ active: flowFilter === 'income' }" @click="flowFilter = 'income'">收入 <span>{{ flowCounts.income }}</span></button>
@@ -142,11 +150,11 @@ onMounted(loadCredit);
           </div>
         </header>
         <a-select v-model="accountFilter" size="small" style="width: 170px" placeholder="全部账号" allow-clear aria-label="按账号筛选"><a-option v-for="account in accounts" :key="account.uid" :value="account.uid">{{ nameOf(account) }}</a-option></a-select>
-        <div class="table-wrap"><table>
+        <div class="table-wrap ledger-list" tabindex="0" aria-label="积分流水列表"><table>
           <thead><tr><th>时间</th><th>账号</th><th>类型</th><th>变动</th><th>余额</th><th>到期</th></tr></thead>
           <tbody>
             <tr v-for="(entry, index) in creditRows" :key="entry.time + ':' + index">
-              <td>{{ new Date(entry.time).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) }}</td>
+              <td>{{ formatDateTime(entry.time) }}</td>
               <td>{{ entry.account || nicknameOf(entry.uid) }}</td>
               <td><span :class="['type-pill', entry.delta > 0 ? 'income' : 'expense']">{{ entry.delta > 0 ? '收入' : '消耗' }}</span></td>
               <td :class="entry.delta >= 0 ? 'accent-text' : 'warning-text'">{{ entry.delta >= 0 ? '+' : '' }}{{ formatNumber(entry.delta) }}</td>
@@ -154,19 +162,21 @@ onMounted(loadCredit);
               <td>{{ earliestExpiryByUid[entry.uid] || '—' }}</td>
             </tr>
           </tbody>
-        </table><a-empty v-if="!creditRows.length && !creditLoading" :description="historySupported ? '暂无积分变动记录（签到或刷新余额后生成）' : model.providerName + ' 暂未接入积分流水'" /></div>
-        <footer class="ledger-foot"><span>显示最近 {{ creditRows.length }} 条</span><span v-if="historySupported">近 7 天净变动 {{ recentDelta >= 0 ? '+' : '' }}{{ formatNumber(recentDelta) }} · 积分在签到或手动刷新后更新</span></footer>
+        </table><a-empty v-if="!creditRows.length && !creditLoading" :description="historySupported ? '暂无积分变动记录（余额刷新后开始记录）' : model.providerName + ' 暂无可用余额流水'" /></div>
+        <footer class="ledger-foot"><span>显示最近 {{ creditRows.length }} 条</span><span v-if="historySupported">近 7 天净变动 {{ recentDelta >= 0 ? '+' : '' }}{{ formatNumber(recentDelta) }} · 余额定期刷新后记录变化</span></footer>
       </section>
 
       <aside class="billing-side">
-        <section class="panel-card">
+        <section class="panel-card account-summary">
           <header class="ledger-head"><div class="ledger-title"><h2>按账号</h2><small>余额占比</small></div></header>
-          <div v-for="row in accountSummary" :key="row.account.uid" class="acct-line">
-            <div class="acct-top"><span>{{ nameOf(row.account) }}</span><strong class="accent-text">{{ accountCredits(row.account) }}</strong></div>
-            <div class="acct-bar"><i :style="{ width: shareOf(row.credits) }" /></div>
-            <small class="benefit-detail"><template v-if="historySupported">本月 {{ row.income ? '+' + formatNumber(row.income) : '--' }} / {{ row.expense ? formatNumber(row.expense) : '--' }} · </template>{{ accountEdition(row.account) }}</small>
+          <div class="account-summary-list" tabindex="0" aria-label="账号余额列表">
+            <div v-for="row in accountSummary" :key="row.account.uid" class="acct-line">
+              <div class="acct-top"><span>{{ nameOf(row.account) }}</span><strong class="accent-text">{{ accountCredits(row.account) }}</strong></div>
+              <div class="acct-bar"><i :style="{ width: shareOf(row.credits) }" /></div>
+              <small class="benefit-detail"><template v-if="historySupported">本月 {{ row.income ? '+' + formatNumber(row.income) : '--' }} / {{ row.expense ? formatNumber(row.expense) : '--' }} · </template>{{ accountEdition(row.account) }}</small>
+            </div>
+            <a-empty v-if="!accountSummary.length" description="暂无账号" />
           </div>
-          <a-empty v-if="!accountSummary.length" description="暂无账号" />
           <footer class="acct-net"><span>合计</span><strong>{{ balanceUnknown ? '--' : formatNumber(totalCredits) }}</strong></footer>
         </section>
 

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/linguo2625469/workbuddy2api-panel/internal/auth"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/gateway"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/httpauth"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/livecfg"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/logfmt"
@@ -30,10 +31,12 @@ import (
 
 // Config handler 依赖。
 type Config struct {
-	Pool      *pool.Pool
-	Upstream  *upstream.Client
-	APIKey    string // 空 = 不鉴权（静态值；与 Live 同时给出时 Live 优先）
-	MaxRotate int    // 单请求最多换号次数，默认 3
+	GatewaySupplier string
+	Providers       *gateway.Router
+	Pool            *pool.Pool
+	Upstream        *upstream.Client
+	APIKey          string // 空 = 不鉴权（静态值；与 Live 同时给出时 Live 优先）
+	MaxRotate       int    // 单请求最多换号次数，默认 3
 	// Session 会话粘性路由器（可选；nil = 关闭粘性，纯 Pick 轮换）。
 	Session *session.Router
 	// StickyCount 返回当前粘性会话绑定数（供 /status）；nil 时报告 0。
@@ -90,6 +93,7 @@ func (h *Handler) loadLive() livecfg.Snapshot {
 		return h.cfg.Live.Load()
 	}
 	return livecfg.Snapshot{
+		GatewaySupplier:  h.cfg.GatewaySupplier,
 		APIKey:           h.cfg.APIKey,
 		SoftCooldown:     h.cfg.SoftCooldown,
 		RecordClientInfo: h.cfg.RecordClientInfo,
@@ -220,21 +224,44 @@ func (h *Handler) healthz(w http.ResponseWriter, r *http.Request) {
 	if !h.cfg.Pool.ServableNow() {
 		status = http.StatusServiceUnavailable
 	}
-	// realm_servable 域可服务维度：不改判活语义（存在性探活保持不变），
-	// 只新增 CN/global 各自可达性供双域部署运维观察（任一域不可用单独告警）。
+	providerTotals := h.cfg.Providers.Availability()
+	for _, counts := range providerTotals {
+		if counts["healthy"] > 0 {
+			status = http.StatusOK
+			break
+		}
+	}
+	// Keep WorkBuddy realm availability separate from native-provider scheduling.
 	realmServable := map[string]bool{
 		"cn":     h.cfg.Pool.ServableForRealm("cn"),
 		"global": h.cfg.Pool.ServableForRealm("global"),
+	}
+	supplier := h.loadLive().GatewaySupplier
+	if supplier != "" && supplier != "auto" {
+		available := false
+		switch supplier {
+		case "workbuddy-cn":
+			available = realmServable["cn"]
+		case "workbuddy-global":
+			available = h.cfg.GlobalEnabled && realmServable["global"]
+		default:
+			available = providerTotals[supplier]["healthy"] > 0
+		}
+		status = http.StatusServiceUnavailable
+		if available {
+			status = http.StatusOK
+		}
 	}
 	// 恒无鉴权（负载均衡/编排探活只需 2xx/503 语义），身份靠 service 字段 + X-Service 头双保险。
 	// instance 为数据目录指纹（cmd/server 注入）：宿主据此识别"同一份账号数据"，
 	// 不再仅凭端口或 API Key 判断。
 	w.Header().Set("X-Service", ServiceName)
 	body := map[string]any{
-		"healthy":        healthy,
-		"total":          total,
-		"service":        ServiceName,
-		"realm_servable": realmServable,
+		"healthy":         healthy,
+		"total":           total,
+		"service":         ServiceName,
+		"realm_servable":  realmServable,
+		"provider_totals": providerTotals,
 	}
 	if h.cfg.Instance != "" {
 		body["instance"] = h.cfg.Instance
@@ -257,12 +284,13 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 	// 行对照即可读出「探索→毕业」全链路（单一事实来源，不做双表示）。零回归只增键。
 	exploreEvents, exploreLast := h.cfg.Pool.CostExploreStatus()
 	writeJSON(w, http.StatusOK, map[string]any{
-		"accounts":       h.cfg.Pool.List(),
-		"total":          total,
-		"healthy":        healthy,
-		"cooling":        cooling,
-		"disabled":       disabled,
-		"in_flight_full": inFlightFull,
+		"accounts":        h.cfg.Pool.List(),
+		"provider_totals": h.cfg.Providers.Availability(),
+		"total":           total,
+		"healthy":         healthy,
+		"cooling":         cooling,
+		"disabled":        disabled,
+		"in_flight_full":  inFlightFull,
 		// realm_totals 按域分组的计数汇总（双 realm 并存时运维一眼看到各域可用性）：
 		// 只新增字段，既有 total/healthy/cooling/disabled/in_flight_full 汇总键不变（零回归）。
 		"realm_totals": map[string]map[string]int{
@@ -317,10 +345,55 @@ const (
 // models 返回模型列表：纯动态（缓存 10min），失败/无号返回空列表（无静态兜底——
 // 拉不出目录即意味着上游不可用，假名单只会让客户端选到 11102 的模型）。
 func (h *Handler) models(w http.ResponseWriter, r *http.Request) {
+	live := h.loadLive()
+	models := h.modelListForSupplier(live.GatewaySupplier)
+	if h.cfg.Providers != nil {
+		for _, m := range h.cfg.Providers.ModelsForSupplier(r.Context(), live.GatewaySupplier) {
+			if _, hidden := live.HiddenModels[m["id"].(string)]; !hidden {
+				models = append(models, m)
+			}
+		}
+	}
+	for _, model := range models {
+		annotateModelLabel(model)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"object": "list",
-		"data":   h.modelList(),
+		"data":   models,
 	})
+}
+
+func annotateModelLabel(model map[string]any) {
+	if model == nil {
+		return
+	}
+	providerNames := map[string]string{
+		"doubao": "豆包", "antigravity": "Antigravity", "loomy": "Loomy", "minimax": "MiniMax", "qoder": "Qoder", "trae": "Trae",
+	}
+	vendor, _ := model["vendor"].(string)
+	if vendor == "" {
+		provider, _ := model["provider"].(string)
+		vendor = providerNames[provider]
+	}
+	credits, _ := model["credits"].(string)
+	credits = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(credits), "credits"))
+	metadata := make([]string, 0, 2)
+	if vendor != "" {
+		metadata = append(metadata, vendor)
+	}
+	if credits != "" {
+		metadata = append(metadata, credits)
+	}
+	if len(metadata) == 0 {
+		return
+	}
+	name, _ := model["name"].(string)
+	if name == "" {
+		name, _ = model["id"].(string)
+	}
+	if name != "" {
+		model["name"] = name + " · " + strings.Join(metadata, " · ")
+	}
 }
 
 // fmtCreditsPrefix 从上游 credits 原文提取倍率并格式化为 "[x0.05 credit]"。
@@ -398,10 +471,18 @@ func applyModelInfoFields(entry map[string]any, mi upstream.ModelInfo) map[strin
 // 对称）；global.enabled=true 时追加 global: 前缀的国际版名单。
 // 纯动态：动态拉取失败/无号 → 该域空列表，无静态兜底。
 func (h *Handler) modelList() []map[string]any {
+	return h.modelListForSupplier(h.loadLive().GatewaySupplier)
+}
+
+func (h *Handler) modelListForSupplier(supplier string) []map[string]any {
 	out := make([]map[string]any, 0)
 	// models.hidden 黑名单：快照外提，避免逐条目重复 Load。
 	hidden := h.loadLive().HiddenModels
-	for _, mi := range h.fetchDynamicModels() {
+	var cnModels []upstream.ModelInfo
+	if gateway.SupplierAllowsModel(supplier, "cn:") {
+		cnModels = h.fetchDynamicModels()
+	}
+	for _, mi := range cnModels {
 		if _, ok := hidden["cn:"+mi.ID]; ok {
 			continue
 		}
@@ -425,17 +506,12 @@ func (h *Handler) modelList() []map[string]any {
 		entry = applyModelInfoFields(entry, mi)
 		// effort 能力透出——远端 supportedEfforts 权威，缺失落到 CN 静态兜底表
 		// （客户端可发现档位，不再盲传）。无档位 → 省略字段。
-		if efforts, def := upstream.EffortListing("cn", mi.ID, mi.Efforts, mi.DefaultEffort); efforts != nil {
-			entry["reasoning_supported_efforts"] = efforts
-			if def != "" {
-				entry["reasoning_default_effort"] = def
-			}
-		}
+		applyEffortFields(entry, "cn", mi.ID, mi.Efforts, mi.DefaultEffort)
 		out = append(out, entry)
 	}
 	// global 模型名单：仅 GlobalEnabled=true 时列出（逃生门）。
 	// 名单 = 纯动态探测结果（fetchGlobalModels，失败/无号 → 空）。
-	if h.cfg.GlobalEnabled {
+	if h.cfg.GlobalEnabled && gateway.SupplierAllowsModel(supplier, "global:") {
 		// global 域 effort 能力三级查找：探测下发桶（权威）→ 静态兜底表 → 省略。
 		// 先 fetchGlobalModels（内部探测并落 effort 桶），再按 id 取快照。
 		globalIDs, globalAccount := h.fetchGlobalModels()
@@ -467,16 +543,26 @@ func (h *Handler) modelList() []map[string]any {
 			if mo, ok := upstream.MaxOutputTokensListingV4(id, remoteOut, h.cfg.Upstream.HTTP); ok {
 				entry["max_output_tokens"] = mo
 			}
-			if efforts, def := upstream.EffortListing("global", id, globalEfforts[id], globalDefaults[id]); efforts != nil {
-				entry["reasoning_supported_efforts"] = efforts
-				if def != "" {
-					entry["reasoning_default_effort"] = def
-				}
-			}
+			applyEffortFields(entry, "global", id, globalEfforts[id], globalDefaults[id])
 			out = append(out, entry)
 		}
 	}
 	return out
+}
+
+func applyEffortFields(entry map[string]any, realm, model string, remoteEfforts []string, remoteDefault string) {
+	efforts, defaultEffort := upstream.EffortListing(realm, model, remoteEfforts, remoteDefault)
+	if len(efforts) == 0 {
+		return
+	}
+	// Publish both flat effort fields and reasoning_* aliases for catalog consumers.
+	entry["supports_reasoning"] = true
+	entry["supported_efforts"] = efforts
+	entry["reasoning_supported_efforts"] = efforts
+	if defaultEffort != "" {
+		entry["default_effort"] = defaultEffort
+		entry["reasoning_default_effort"] = defaultEffort
+	}
 }
 
 // fetchGlobalModels 返回 global 模型名单（纯动态探测结果）及被探测账号。
@@ -578,7 +664,27 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 		Stream bool   `json:"stream"`
 		Model  string `json:"model"`
 	}
-	_ = json.Unmarshal(body, &peek)
+	if err := json.Unmarshal(body, &peek); err != nil {
+		writeOpenAIError(w, http.StatusBadRequest, "invalid_request", "invalid request body")
+		return
+	}
+	supplier := h.loadLive().GatewaySupplier
+	resolvedModel, err := gateway.ResolveSupplierModel(supplier, peek.Model)
+	if err != nil {
+		writeOpenAIError(w, http.StatusBadRequest, "supplier_model_mismatch", err.Error())
+		return
+	}
+	if resolvedModel != peek.Model {
+		var fields map[string]json.RawMessage
+		_ = json.Unmarshal(body, &fields)
+		fields["model"], _ = json.Marshal(resolvedModel)
+		body, _ = json.Marshal(fields)
+		peek.Model = resolvedModel
+	}
+	if _, _, ok := gateway.Split(peek.Model); ok {
+		h.providerChat(w, r, body, peek.Stream)
+		return
+	}
 
 	// 工具名名单：上游在没有 tools 的请求里会把工具调用吐成原生标记文本
 	// （见 upstream/dsml.go），修复层用它做严格判定。名单来自「本请求声明的 tools」
@@ -599,7 +705,9 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 	// 语义 = 「裸名不绑定单一域」：首选域（裸名默认 cn）选不到可用号（账号级冷却/熔断/
 	// 在途占满，或该域账号对这个模型 11102 后进入模型级负缓存）时，改用另一域再选一次；
 	// 显式 cn:/global: 前缀保持原语义，永不回退。
-	crossRealm := !realmExplicit && h.cfg.Pool.CrossDomainFallback()
+	crossRealm := (supplier == "" || supplier == "auto") && !realmExplicit && h.cfg.Pool.CrossDomainFallback() &&
+		h.cfg.Pool.StrategyForRealm(realm) != pool.SingleAccount &&
+		h.cfg.Pool.StrategyForRealm(otherRealm(realm)) != pool.SingleAccount
 
 	// 请求级统计：出口即打一行表格日志（任何路径都会走到）。
 	st := newChatStat(time.Now(), body, peek.Stream)
@@ -632,7 +740,7 @@ func (h *Handler) chatCompletions(w http.ResponseWriter, r *http.Request) {
 	// 会话级（RequestIDForKey(sessKey)），不悄悄退化成轮级——提取本身与粘性无关。
 	sessKey := session.ExtractKey(body)
 	stickyUID := ""
-	if h.cfg.Session != nil && sessKey != "" {
+	if h.cfg.Session != nil && sessKey != "" && h.cfg.Pool.StrategyForRealm(realm) != pool.SingleAccount {
 		// 按模型解析：绑定号在**当前模型**被 6004 限额时视为不可用 → 重新分配，
 		// 而不是钉在限额号上反复失败（"限额后换不动号"的正解）。
 		resolve := h.cfg.Session.ResolveForModel

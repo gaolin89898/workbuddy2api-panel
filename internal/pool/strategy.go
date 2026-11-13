@@ -11,6 +11,7 @@ const (
 	WeightedRandom    = "weighted_random"
 	RoundRobin        = "round_robin"
 	SequentialExhaust = "sequential_exhaust"
+	SingleAccount     = "single_account"
 )
 
 // RegionStrategies 使用配置层的地区名；路由层仍使用现有 cn/global realm。
@@ -28,12 +29,12 @@ func (s RegionStrategies) Normalize() (RegionStrategies, error) {
 	} {
 		*field.value = strings.ToLower(strings.TrimSpace(*field.value))
 		if *field.value == "" {
-			*field.value = WeightedRandom
+			*field.value = SingleAccount
 		}
 		switch *field.value {
-		case WeightedRandom, RoundRobin, SequentialExhaust:
+		case WeightedRandom, RoundRobin, SequentialExhaust, SingleAccount:
 		default:
-			return s, fmt.Errorf("%s: %q 不是合法策略（weighted_random / round_robin / sequential_exhaust）", field.name, *field.value)
+			return s, fmt.Errorf("%s: %q 不是合法策略（weighted_random / round_robin / sequential_exhaust / single_account）", field.name, *field.value)
 		}
 	}
 	return s, nil
@@ -99,7 +100,7 @@ func (p *Pool) restoreSchedulingLocked(cursors map[string]scheduleCursor) {
 	for key, cursor := range cursors {
 		realm, _, ok := strings.Cut(key, "\x1f")
 		if ok && (realm == "cn" || realm == "global") &&
-			(cursor.Strategy == RoundRobin || cursor.Strategy == SequentialExhaust) {
+			(cursor.Strategy == RoundRobin || cursor.Strategy == SequentialExhaust || cursor.Strategy == SingleAccount) {
 			p.scheduling[key] = cursor
 		}
 	}

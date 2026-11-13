@@ -1,11 +1,11 @@
-﻿<p align="center">
+<p align="center">
   <img src="https://raw.githubusercontent.com/DGZSbot/ai-icon/refs/heads/main/WorkBuddy.png" alt="WorkBuddy2API" width="120">
 </p>
 
 <h1 align="center">WorkBuddy2API Panel</h1>
 
 <p align="center">
-  <b>WorkBuddy · Trae · Qoder · MiniMax 账号管理与每日签到 · 可选 OpenAI 兼容网关</b><br>
+  <b>WorkBuddy · Trae · Qoder · MiniMax · Loomy 账号管理与每日签到 · 可选 OpenAI 兼容网关</b><br>
   AI 工具箱 · Windows 桌面窗口 · DSH 插件 · 账号切换 · 成长任务 · 活动奖励 · 状态持久化
 </p>
 
@@ -26,16 +26,46 @@
 
 ## 项目简介
 
-WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **WorkBuddy / Trae / Qoder / MiniMax** 四个平台的账号、积分和每日签到，支持本机 Windows 客户端账号切换、WorkBuddy 成长任务与活动奖励。页面可通过浏览器、Windows 桌面窗口或 DSH 插件使用，账号和设置由 Go 后端持久保存。
+WorkBuddy2API Panel 提供「AI 工具箱」账号管理页面，默认管理 **WorkBuddy / Trae / Qoder / MiniMax / Loomy** 五个平台的账号、积分和每日签到，支持本机 Windows 客户端账号切换、WorkBuddy 成长任务与活动奖励。页面可通过浏览器、Windows 桌面窗口或 DSH 插件使用，账号和设置由 Go 后端持久保存。
 
 直接运行程序进入账号管理模式；需要为个人工具提供 OpenAI 兼容接口时，使用同一程序加上 `-gateway`。
 
 | 启动方式 | 页面与能力 | 自动运行 |
 |---|---|---|
-| 默认账号管理 | AI 工具箱：账号、任务中心、活动奖励、签到设置、运行日志；支持四个平台与 WorkBuddy / Trae / Qoder 本机客户端切换 | 按北京时间执行签到、按设置刷新积分和启动补签；任务与活动奖励手动执行 |
-| `-gateway` | WorkBuddy 账号池管理、用量、模型、配置与日志，以及 `/v1/*` 接口 | 按 `config.json` 中的排程运行签到、保活、旅行、活跃等任务 |
+| 默认账号管理 | AI 工具箱：账号、任务中心、活动奖励、签到设置、运行日志；支持五个平台与 WorkBuddy / Trae / Qoder 本机客户端切换 | 按北京时间执行签到、按设置刷新积分和启动补签；任务与活动奖励手动执行 |
+| `-gateway` | 多平台聊天转发、用量、模型、配置与日志，以及 `/v1/*` 接口 | 按 `config.json` 中的排程运行签到、保活、旅行、活跃等任务 |
 
-默认模式不开放 `/v1/*`，不初始化网关用量统计、会话路由或 Redis。Trae / Qoder 账号管理和 DSH 插件连接默认账号服务；启用 WorkBuddy 网关不会为这两个平台增加 API 转发能力。
+默认模式不开放 `/v1/*`，不初始化网关用量统计、会话路由或 Redis。加上 `-gateway` 后，使用面板中已有账号提供多平台转发。
+
+## 多平台聊天网关
+
+在客户端配置同一网关的 `/v1` 地址和 API Key，模型名填写 `/v1/models` 或面板「模型」页返回的完整 ID：
+
+| 平台 | 调用模型示例 | 实现与验证 |
+|---|---|---|
+| WorkBuddy | `cn:模型名`、`global:模型名` | 原有路由不变；裸名继续默认国内版 |
+| Loomy | `loomy/spark-x2.6` | 原生 OpenAI Chat；模型目录、聊天、工具调用和用量已实测 |
+| MiniMax | `minimax/MiniMax-M3` | 原生 Anthropic Messages 转换；聊天、工具调用和用量已实测；需要 OAuth / Bearer 登录，Cookie 仅供账号管理 |
+| Qoder CN | `qoder/fast` | COSY 签名接口与 SSE 信封解包；动态目录、聊天、工具调用和用量已实测 |
+| Trae CN | `trae/Doubao-Seed-Code` | IDE raw-v2 适配；目录已验证，当前实测账号均返回流内限流，聊天暂未通过真实成功验证 |
+| 豆包 | `doubao/doubao` | doubao.com 网页会话；文本聊天与流式 / 非流式转换已用模拟上游验证，真实账号待验证 |
+| Antigravity | `antigravity/模型ID` | Google OAuth + 原生 Gemini 协议转换；动态目录、文本、思考、Base64 图片和工具调用；具体模型 ID 以账号目录为准 |
+
+新增平台均通过 `POST /v1/chat/completions` 接入，支持 `stream: true/false`。模型目录按启用账号合并并缓存 5 分钟；Loomy 仅列出 OpenAI Chat 模型，Trae 排除辅助模型、自定义模型占位和隐藏配置。MiniMax 使用桌面端内置的 M3 / M3.1-Flash 目录，账号实际权限以上游响应为准。MiniMax 转换文本、图片、工具历史和思考内容；未适配参数（如 `response_format`）会返回 400。
+
+Antigravity 在「添加账号 → Antigravity」导入 OAuth 授权 JSON，或填写 Refresh Token / Access Token。支持 CLIProxyAPI 单账号授权文件、Antigravity Tools 的嵌套 `token` 文件，以及 `accounts` 数组导出；混合导出只接收 Antigravity 记录。添加时通过 Google 验证邮箱与项目；首次使用需先在官方客户端完成账号初始化。凭证保存在 `state_file` 同目录的 `antigravity-accounts.json`。使用 Refresh Token 续期前，需要在后端进程环境中设置与该授权匹配的 `WB2A_ANTIGRAVITY_CLIENT_ID` 和 `WB2A_ANTIGRAVITY_CLIENT_SECRET`；仓库不内置 OAuth 客户端凭据。临期 Access Token 使用 Refresh Token 自动续期并落盘；仅有 Access Token 的账号到期后需要更新凭证。页面只返回脱敏状态，不提供签到或积分余额。当前未提供浏览器 OAuth 登录和本机客户端切换。
+
+Antigravity 通过 `fetchAvailableModels` 读取实际目录，隐藏图片/视频生成模型；调用 `antigravity/` 前缀的完整 ID，失败时仅在 Antigravity 账号内轮换。工具调用签名通过 `extra_content.google.thought_signature` 返回，并在进程内按账号、模型及调用 ID 缓存，方便客户端多轮工具历史回传。图片输入目前仅支持 Base64 data URL；`response_format`、音频和未支持的工具 Schema 会返回 400。协议转换、续期、流式/非流式、工具历史及异常处理已用模拟上游测试，真实账号可用性仍需导入授权后验证。
+
+豆包在「添加账号 → 豆包」粘贴已登录 doubao.com 的 `sessionid` 或完整 Cookie，保存前通过官方账号接口验证身份；同一账号重复添加会更新凭证，更新已有账号时拒绝替换成其他身份。支持备注、启停、移除和手动刷新登录状态，凭证保存在 `state_file` 同目录的 `doubao-accounts.json`；页面和日志不返回 Cookie。登录失效后需重新登录豆包并更新凭证，当前不提供自动续期、客户端切换、签到或积分查询。
+
+豆包网关调用 `doubao/doubao`，仅支持文本消息；多轮历史合并为带角色的文本，使用独立的网页会话生成。图片、工具调用和结构化输出请求会返回 400；网页协议不提供可靠的 token / 积分用量，面板不估算。网页风控或协议变化可能导致请求失败，需在豆包完成验证后重试；不会自动绕过验证码，也不会在流中断后重放生成。接入使用公开网页协议独立实现，账号验证、流事件转换和失败处理已通过模拟上游测试，真实账号对话尚待验证。
+
+新增平台使用各自的账号轮换、会话粘性、在途上限和失败冷却，复用 `pool.max_in_flight`（0 表示不限）与 `soft_rate` 设置；WorkBuddy 专属的积分权重、成本调度与 Redis 粘性规则仍只作用于 WorkBuddy。禁用账号不参与转发；MiniMax / Qoder / Trae / Antigravity 临期凭证在已有存储锁内刷新并持久化，推理过程不持有该锁。Loomy 会话过期后需重新导入。
+
+只有明确的上游拒绝、且尚未输出时才会尝试其他账号；连接结果不明、断流或输出后错误不会重放生成。Trae 的 HTTP 200 流内错误会转换为真实失败，不计为成功请求。用量和请求日志按平台模型名记录；`/healthz`、`/status` 的 `provider_totals` 展示新增平台的本地调度状态。
+
+协议参考：[qoder2api-hub](https://github.com/shuishuipingan/qoder2api-hub)、[Trae2api-cn](https://github.com/autumnsentiment/Trae2api-cn)（MIT）、[antigravityProxyGo](https://github.com/weilimao/antigravityProxyGo) 的公开接口信息，以及本机 Loomy / MiniMax 原生客户端。Antigravity 适配独立实现，不包含参考项目的源代码。许可声明见 `internal/gateway/NOTICE`。
 
 ## 核心能力
 
@@ -232,14 +262,14 @@ go test ./...
 
 ### DSH 插件
 
-当前插件版本为 **0.1.12**。在 `dsh-plugin` 目录构建、检查并打包：
+当前插件版本为 **0.1.47**。在 `dsh-plugin` 目录构建、检查并打包：
 
 ```powershell
 npm --prefix ../web ci
 npm run build
 npm test
 npm pack
-dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.12.tgz"
+dsh plugin --profile desktop add "file:C:/绝对路径/dsh-workbuddy-accounts-0.1.47.tgz"
 ```
 
 独立 DSH Web 使用 `--profile web`。点击侧栏「AI 工具箱」展开五项菜单，嵌入页面使用整块内容区，主题与 Arco 滚动条跟随 DSH；管理密钥入口位于「签到设置」。Go 后端需在目标电脑单独运行。使用远程会话插件 1.2.2 或更新版本时，页面、账号统计、设置与客户端操作跟随当前电脑；目标电脑也需安装 AI 工具箱 0.1.9 或更新版本。各电脑密钥和备注独立保存，连接失败会报错，不回退显示本机数据。已在 DSH `0.2.2-rc.1` 上验证宽屏与窄屏抽屉布局下的菜单、主题和接口连接。安装细节见 [dsh-plugin/README.md](dsh-plugin/README.md)。
@@ -378,8 +408,9 @@ curl -s http://localhost:7863/v1/search/messages \
 | `pool.breaker_cooldown_max` | `6h` | 熔断指数退避封顶 |
 | `pool.idle_weight_per_hour` | `0.5` | 闲置补偿：每小时未使用 +0.5 权重 |
 | `pool.idle_weight_max` | `5.0` | 闲置补偿权重封顶 |
-| `pool.strategy.domestic` | `weighted_random` | 国内版账号池调度：`weighted_random` / `round_robin` / `sequential_exhaust`，支持热更新 |
-| `pool.strategy.international` | `weighted_random` | 国际版账号池独立调度策略，同上；不改变既有地区路由 |
+| `pool.strategy.domestic` | `single_account` | 国内版账号池调度：`single_account` / `weighted_random` / `round_robin` / `sequential_exhaust`，支持热更新 |
+| `gateway.supplier` | `auto` | 供应应用：`auto` / `workbuddy-cn` / `workbuddy-global` / `loomy` / `minimax` / `qoder` / `trae` / `antigravity` / `doubao`；网关页左上角选择后保存并热生效。固定应用时，面板与 `/v1/models` 仅列该应用模型；裸模型名交由该应用，其他应用的显式模型前缀返回 400，不回退。`auto` 保持按模型前缀路由，目录合并各应用。 |
+| `pool.strategy.international` | `single_account` | 国际版账号池独立调度策略，同上；不改变既有地区路由 |
 | `pool.account_order.domestic` / `international` | `[]` | 对应地区的 UID 优先顺序；未列出账号按 UID 排序追加；只用于轮询和顺序耗尽 |
 | `pool.prefer_expiring` | `true` | 快过期积分加权：窗口内仍有有效快过期批次的账号，选号权重 ×3（虚拟实例）；不按到期时间排序、与批次金额无关；是软偏好，弱于会话粘性与模型成本分层（#101） |
 | `pool.expiring_soon` | `168h` | 快过期加权窗口：仅窗口内仍有有效批次的账号命中上述 ×3；窗口开大 → 命中账号变多、偏好被稀释；留空或 `0` 关闭 |
@@ -520,11 +551,12 @@ WARN: [server] stream ...: saw M native tool call block(s) but repaired none (to
 }
 ```
 
-- **加权随机**：保留原有成本分层、Top5 加权、闲置补偿和快过期积分权重。旧配置缺少策略时，两域均使用此默认值。
+- **加权随机**：保留原有成本分层、Top5 加权、闲置补偿和快过期积分权重。显式配置此策略时继续使用；缺少策略时默认使用单账号耗尽。
+- **单账号耗尽**（`single_account`）：同地区所有会话、模型与搜索共用当前账号，跳过会话分流、成本分层与探索。余额耗尽、低于积分保底或上游确认余额不足后，等待旧账号在途请求全部结束，再按账号顺序切换；暂停、禁用、移除也允许切换。并发满、临时限流、模型不可用和普通失败不借用其他账号，当前请求返回不可用或原错误。切换后，余额恢复的旧账号不会抢占当前账号。国内版和国际版分别维护账号，裸模型名在任一地区启用此模式时不跨域回退。未知余额不会当作零余额，等待余额查询或上游确认；主账号指针随状态快照保存。
 - **轮询**：在当前最优成本层的全部可用账号之间按顺序轮换，不截断 Top5。跳过禁用、暂停、对应模型冷却、积分保底拦截及在途占满的账号。
 - **顺序耗尽**：持续使用当前账号，直到对应模型冷却、账号不可用、积分保底拦截或成本层优先级变化，再向后切换。恢复的早序账号不会抢占仍可用的当前账号，后续轮转可再次使用。请求级重试和在途占满可暂用其他账号，但不推进主账号；普通失败仍按现有熔断规则处理。
 
-两种有序策略仍遵守会话粘性和成本探索，轮询指针 / 顺序耗尽主账号按 `(realm, model)` 独立维护，通过既有本地状态与 Redis 快照机制恢复。全部候选冷却时返回无可用账号，等待既有恢复机制，不提前试探冷却账号；加权随机继续保留原有全冷却兜底。选号和指针更新持池锁，在途租约仍由既有 Acquire/Release 保证。
+轮询与顺序耗尽仍遵守会话粘性和成本探索，轮询指针 / 顺序耗尽主账号按 `(realm, model)` 独立维护，通过既有本地状态与 Redis 快照机制恢复。全部候选冷却时返回无可用账号，等待既有恢复机制，不提前试探冷却账号；加权随机继续保留原有全冷却兜底。选号和指针更新持池锁，在途租约仍由既有 Acquire/Release 保证。
 
 Web 面板「账号池与流量治理」可分别配置策略和账号顺序，保存后热生效。闲置补偿与快过期积分加权仅影响加权随机。无地区上下文的旧 Pool 入口保留原行为；策略不会改变路由或自动跨地区借号。
 

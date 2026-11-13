@@ -12,12 +12,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/linguo2625469/workbuddy2api-panel/internal/gateway"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/pool"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/prompt"
 )
 
 // Config 顶层配置。
 type Config struct {
+	Gateway struct {
+		Supplier string `json:"supplier"`
+	} `json:"gateway"`
 	Listen    string `json:"listen"`         // ":7863"
 	APIKey    string `json:"api_key"`        // 空 = 不鉴权
 	PanelUser string `json:"panel_username"` // 面板账号密码登录用户名；缺省 admin
@@ -285,6 +289,7 @@ func Default() *Config {
 		StateFile: "./data/state.json",
 	}
 	c.Cooldown.SoftRate = "600s"
+	c.Gateway.Supplier = "auto"
 	c.Cooldown.SoftRateMax = "2h"
 	c.Server.ReadTimeout = "300s"
 	c.Panel.PackageDetailLimit = 5
@@ -322,7 +327,7 @@ func Default() *Config {
 	c.Global.Enabled = true
 	c.Features.SanitizeBlacklistFingerprints = true
 	c.Prompt.Mode = "passthrough" // 缺省 passthrough：透传客户端原始 system（对齐上游；custom 由用户显式选择）
-	c.Pool.Strategy = pool.RegionStrategies{Domestic: pool.WeightedRandom, International: pool.WeightedRandom}
+	c.Pool.Strategy = pool.RegionStrategies{Domestic: pool.SingleAccount, International: pool.SingleAccount}
 	c.Pool.MaxInFlight = 3
 	// MaxInFlightGlobal 缺省 2：global 域 WAF 风控更紧，压低单号并发（WAF 403 修复
 	// P1-1）；0/负数 normalize 回落默认（与 max_in_flight 的 0=不限语义不同，分档键
@@ -506,6 +511,9 @@ func applyEnv(c *Config) {
 
 func (c *Config) normalize() error {
 	var err error
+	if c.Gateway.Supplier, err = gateway.NormalizeSupplier(c.Gateway.Supplier); err != nil {
+		return err
+	}
 	if c.Pool.Strategy, err = c.Pool.Strategy.Normalize(); err != nil {
 		return fmt.Errorf("pool.strategy: %w", err)
 	}

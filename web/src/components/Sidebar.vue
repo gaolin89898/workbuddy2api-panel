@@ -27,10 +27,9 @@ function copyKey() {
   <aside class="sidebar">
     <div class="sidebar-top">
       <a class="brand" href="#accounts" @click.prevent="emit('navigate', 'accounts')">
-        <span class="brand-mark">A</span><span><strong>AI 工具箱</strong><small>WorkBuddy · Trae · Qoder · MiniMax · Loomy</small></span>
+        <span class="brand-mark">A</span><span><strong>AI 工具箱</strong></span>
       </a>
       <nav class="side-navigation" aria-label="主导航">
-        <span class="nav-caption">工作台</span>
         <button v-for="tab in tabs" :key="tab.id" :class="{ active: view === tab.id }" :aria-current="view === tab.id ? 'page' : undefined" @click="emit('navigate', tab.id)"><component :is="tab.icon" /><span>{{ tab.name }}</span></button>
       </nav>
       <section v-if="view === 'gateway'" class="api-access">
@@ -39,7 +38,7 @@ function copyKey() {
         <div class="inline-between api-key-row"><small>Bearer 管理密钥</small><button class="api-copy" :disabled="!apiKey" aria-label="复制密钥" title="复制密钥" @click="copyKey"><icon-copy /></button></div>
         <small class="side-muted">与面板共用 api_key · 鉴权失败返回 401</small>
       </section>
-      <div class="sidebar-schedule">
+      <div v-if="!['antigravity', 'doubao'].includes(model.provider)" class="sidebar-schedule">
         <div class="inline-between"><span>自动签到</span><span class="side-badge">{{ model.schedule?.checkin_enabled ? '已开启' : '已关闭' }}</span></div>
         <div class="side-times"><template v-for="(hour, index) in model.effectiveHours" :key="hour"><span v-if="index" class="time-separator">·</span><b>{{ formatHour(hour) }}</b></template><span v-if="!model.schedule">--:--</span></div>
         <span class="side-muted">每天 · 北京时间</span>

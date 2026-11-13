@@ -305,13 +305,15 @@ func (p *Pool) SetStore(s StoreSnapshotter) {
 // （global 档 maxInFlightGlobal，P1-1；未设置回落 maxInFlight）。
 func (p *Pool) Acquire(uid string) bool {
 	p.mu.RLock()
+	defer p.mu.RUnlock()
 	e, ok := p.byUID[uid]
 	if !ok {
-		p.mu.RUnlock()
+		return false
+	}
+	if !p.singleAccountAllowsLocked(e, time.Now()) {
 		return false
 	}
 	limit := p.inFlightLimit(e)
-	p.mu.RUnlock()
 	if limit <= 0 {
 		// 不限：计数仍累加（供状态观测），但永不拒绝。
 		e.inFlight.Add(1)

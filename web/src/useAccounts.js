@@ -1,24 +1,21 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import { hostRuntime } from './hostRuntime';
+import { chinaDate, clockTime } from './dateTime';
+
+export { chinaDate, clockTime };
 
 const localStorage = hostRuntime.storage;
 
 export const KEY_STORAGE = 'wb2api.key';
 const REMARK_STORAGE = 'wb.accounts.remarks';
+const WORKBUDDY_REALM_STORAGE = 'wb.accounts.workbuddy-realm';
 const ZONE = 'Asia/Shanghai';
 
-export function chinaDate(value = Date.now()) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: ZONE, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value));
-}
-export function clockTime(value) {
-  if (!value || String(value).startsWith('0001-')) return '--';
-  return new Date(value).toLocaleTimeString('zh-CN', { timeZone: ZONE, hour12: false });
-}
 export function formatHour(hour) { return String(hour).padStart(2, '0') + ':00'; }
 export function formatNumber(value) { return Number(value || 0).toLocaleString('zh-CN'); }
 export function canCheckin(account) { return !account.disabled && !account.enterprise && account.realm !== 'global' && account.checkin_supported !== false; }
-export function accountEdition(account) { return account.provider === 'minimax' ? 'MiniMax 国内版' : account.provider === 'qoder' ? 'Qoder 国内版' : account.provider === 'trae' ? 'Trae 国内版' : account.provider === 'loomy' ? 'Loomy 国内版' : account.enterprise ? '企业版' : account.realm === 'global' ? '国际版' : '国内版'; }
+export function accountEdition(account) { return account.provider === 'doubao' ? '豆包' : account.provider === 'antigravity' ? 'Antigravity' : account.provider === 'minimax' ? 'MiniMax 国内版' : account.provider === 'qoder' ? 'Qoder 国内版' : account.provider === 'trae' ? 'Trae 国内版' : account.provider === 'loomy' ? 'Loomy 国内版' : account.enterprise ? '企业版' : account.realm === 'global' ? '国际版' : '国内版'; }
 export function accountCredits(account) { return account.balance_known === false ? '--' : formatNumber(account.credits); }
 export function checkinState(account) {
   if (account.provider === 'qoder') return account.checkin_done ? { text: '本轮已领取', kind: 'success' } : account.disabled ? { text: '已暂停', kind: 'muted' } : { text: '本轮待领取', kind: 'warning' };
@@ -30,12 +27,16 @@ export function checkinState(account) {
 }
 
 export function useAccounts() {
-  const workbuddyAccounts = ref([]), traeAccounts = ref([]), qoderAccounts = ref([]), minimaxAccounts = ref([]), loomyAccounts = ref([]), allLogs = ref([]), overview = ref({});
-  const provider = ref(['trae', 'qoder', 'minimax', 'loomy'].includes(localStorage.getItem('wb.accounts.provider')) ? localStorage.getItem('wb.accounts.provider') : 'workbuddy');
-  const providerName = computed(() => ({ trae: 'Trae', qoder: 'Qoder', minimax: 'MiniMax', loomy: 'Loomy', workbuddy: 'WorkBuddy' })[provider.value]);
-  const accounts = computed(() => ({ trae: traeAccounts.value, qoder: qoderAccounts.value, minimax: minimaxAccounts.value, loomy: loomyAccounts.value, workbuddy: workbuddyAccounts.value })[provider.value]);
-  const logs = computed(() => allLogs.value.filter(e => provider.value === 'workbuddy' ? !/^(trae|qoder|minimax|loomy):/.test(e.text) : e.text.startsWith(provider.value + ':')));
-  const apiPrefix = value => ['trae', 'qoder', 'minimax', 'loomy'].includes(value) ? value + '/' : '';
+  const workbuddyAccounts = ref([]), traeAccounts = ref([]), qoderAccounts = ref([]), minimaxAccounts = ref([]), loomyAccounts = ref([]), antigravityAccounts = ref([]), doubaoAccounts = ref([]), allLogs = ref([]), overview = ref({});
+  const provider = ref(['trae', 'qoder', 'minimax', 'loomy', 'antigravity', 'doubao'].includes(localStorage.getItem('wb.accounts.provider')) ? localStorage.getItem('wb.accounts.provider') : 'workbuddy');
+  const workbuddyRealm = ref(localStorage.getItem(WORKBUDDY_REALM_STORAGE) === 'global' ? 'global' : 'cn');
+  const platformSelection = computed(() => provider.value === 'workbuddy' ? `workbuddy-${workbuddyRealm.value}` : provider.value);
+  const providerName = computed(() => provider.value === 'workbuddy' ? `WorkBuddy ${workbuddyRealm.value === 'global' ? '国际版' : '国内版'}` : ({ trae: 'Trae', qoder: 'Qoder', minimax: 'MiniMax', loomy: 'Loomy', antigravity: 'Antigravity', doubao: '豆包' })[provider.value]);
+  const accounts = computed(() => provider.value === 'workbuddy'
+    ? workbuddyAccounts.value.filter(account => workbuddyRealm.value === 'global' ? account.realm === 'global' : account.realm !== 'global')
+    : ({ trae: traeAccounts.value, qoder: qoderAccounts.value, minimax: minimaxAccounts.value, loomy: loomyAccounts.value, antigravity: antigravityAccounts.value, doubao: doubaoAccounts.value })[provider.value]);
+  const logs = computed(() => allLogs.value.filter(e => provider.value === 'workbuddy' ? !/^(trae|qoder|minimax|loomy|antigravity|doubao):/.test(e.text) : e.text.startsWith(provider.value + ':')));
+  const apiPrefix = value => ['trae', 'qoder', 'minimax', 'loomy', 'antigravity', 'doubao'].includes(value) ? value + '/' : '';
   const effectiveHours = computed(() => [...new Set((schedule.value?.checkin_hours || []).map(h => provider.value === 'qoder' ? Math.max(10, h) : h))].sort((a, b) => a - b));
   const schedule = ref(null), connected = ref(false), loading = ref(true), error = ref('');
   const desktopClients = ref([]), desktopJob = ref(null), desktopError = ref('');
@@ -46,7 +47,7 @@ export function useAccounts() {
   const desktopBusy = computed(() => !!pendingDesktopSwitch.value || !!desktopJob.value && !desktopJob.value.done || busy.has('desktop-switch') || busy.has('desktop-capture'));
   function desktopClient(account) {
     const selected = account?.provider || provider.value;
-    if (selected === 'minimax' || selected === 'loomy') return null; // MiniMax / Loomy 暂无本机客户端切换
+    if (['minimax', 'loomy', 'antigravity', 'doubao'].includes(selected)) return null;
     const id = ['trae', 'qoder'].includes(selected) ? selected : account?.realm === 'global' ? 'workbuddy-global' : 'workbuddy';
     return desktopClients.value.find(c => c.id === id);
   }
@@ -116,6 +117,10 @@ export function useAccounts() {
   const minimaxDraft = reactive({ credential: '', nickname: '', uid: '', auth_kind: '' });
   const minimaxLogin = reactive({ state: '', url: '', userCode: '', error: '', waiting: false, interval: 3000 });
   const loomyDraft = reactive({ credential: '', nickname: '', uid: '', account_uid: '' });
+  const emptyAntigravityDraft = () => ({ uid: '', nickname: '', email: '', access_token: '', refresh_token: '', project_id: '' });
+  const antigravityDraft = reactive(emptyAntigravityDraft());
+  const emptyDoubaoDraft = () => ({ uid: '', nickname: '', cookie: '' });
+  const doubaoDraft = reactive(emptyDoubaoDraft());
   let minimaxTimer, minimaxAttempt = 0;
   let qoderTimer, qoderAttempt = 0;
   const login = reactive({ state: '', url: '', status: '', error: '', waiting: false });
@@ -133,22 +138,27 @@ export function useAccounts() {
 
   const accountName = account => remarks.value[account.uid] || account.nickname || account.uid;
   function selectProvider(value) {
-    provider.value = ['trae', 'qoder', 'minimax', 'loomy'].includes(value) ? value : 'workbuddy';
+    if (value === 'workbuddy-global' || value === 'workbuddy-cn' || value === 'workbuddy') {
+      provider.value = 'workbuddy';
+      workbuddyRealm.value = value === 'workbuddy-global' ? 'global' : 'cn';
+      localStorage.setItem(WORKBUDDY_REALM_STORAGE, workbuddyRealm.value);
+    } else provider.value = ['trae', 'qoder', 'minimax', 'loomy', 'antigravity', 'doubao'].includes(value) ? value : 'workbuddy';
     localStorage.setItem('wb.accounts.provider', provider.value);
   }
   const eligible = computed(() => accounts.value.filter(canCheckin));
   const signed = computed(() => eligible.value.filter(a => a.checkin_done));
   const pending = computed(() => eligible.value.filter(a => !a.checkin_done));
   // 全平台统一视图：供运行日志、签到设置、活动奖励等不区分平台的页面使用。
-  const allAccounts = computed(() => [...workbuddyAccounts.value, ...traeAccounts.value, ...qoderAccounts.value, ...minimaxAccounts.value, ...loomyAccounts.value]);
+  const allAccounts = computed(() => [...workbuddyAccounts.value, ...traeAccounts.value, ...qoderAccounts.value, ...minimaxAccounts.value, ...loomyAccounts.value, ...antigravityAccounts.value, ...doubaoAccounts.value]);
   const allEligible = computed(() => allAccounts.value.filter(canCheckin));
   const allSigned = computed(() => allEligible.value.filter(a => a.checkin_done));
   const allPending = computed(() => allEligible.value.filter(a => !a.checkin_done));
   const credits = computed(() => accounts.value.reduce((sum, a) => sum + Number(a.credits || 0), 0));
   const totalCredits = computed(() => accounts.value.reduce((sum, a) => sum + Number(a.credits_total || 0), 0));
   const unknownBalances = computed(() => accounts.value.filter(a => a.balance_known === false).length);
-  const todayLogs = computed(() => logs.value.filter(e => chinaDate(e.ts) === chinaDate(now.value)));
-  const allTodayLogs = computed(() => allLogs.value.filter(e => chinaDate(e.ts) === chinaDate(now.value)));
+  const today = computed(() => chinaDate(now.value));
+  const todayLogs = computed(() => logs.value.filter(e => chinaDate(e.ts) === today.value));
+  const allTodayLogs = computed(() => allLogs.value.filter(e => chinaDate(e.ts) === today.value));
   const recentActivity = computed(() => logs.value.filter(e => e.ch === 'task').slice(-3).reverse());
   const nextRunFor = hours => {
     if (!schedule.value?.checkin_enabled || !schedule.value.checkin_hours?.length) return null;
@@ -167,7 +177,7 @@ export function useAccounts() {
       remaining: minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : `${minutes} 分钟`,
     };
   };
-  const nextRun = computed(() => nextRunFor(effectiveHours.value));
+  const nextRun = computed(() => ['antigravity', 'doubao'].includes(provider.value) ? null : nextRunFor(effectiveHours.value));
   // 统一视图的下次签到：不按 Qoder 顺延，即所有平台中最早的可签到时刻。
   const allNextRun = computed(() => nextRunFor([...new Set(schedule.value?.checkin_hours || [])].sort((a, b) => a - b)));
   const expiryEntries = computed(() => accounts.value.flatMap(account =>
@@ -202,6 +212,8 @@ export function useAccounts() {
       qoderAccounts.value = data.qoder_accounts || [];
       minimaxAccounts.value = data.minimax_accounts || [];
       loomyAccounts.value = data.loomy_accounts || [];
+      antigravityAccounts.value = data.antigravity_accounts || [];
+      doubaoAccounts.value = data.doubao_accounts || [];
       overview.value = data;
       connected.value = true;
       error.value = '';
@@ -242,7 +254,7 @@ export function useAccounts() {
       const selected = provider.value;
       const data = await api(apiPrefix(selected) + 'balance_all', { method: 'POST' });
       if (data.errors?.length) Message.warning(data.errors.join('；'));
-      else Message.success('积分刷新完成');
+      else Message.success(['antigravity', 'doubao'].includes(selected) ? '授权状态已刷新' : '积分刷新完成');
       await refreshOverview();
       await refreshLogs();
     });
@@ -261,7 +273,7 @@ export function useAccounts() {
       if (type === 'checkin' && !result.checkin_done) throw new Error(result.checkin_message || '签到未完成');
       if (result.file_error) Message.warning('账号已移除，但本地凭证文件删除失败：' + result.file_error);
       else if (result.balance_error) Message.warning('签到成功，但积分刷新失败：' + result.balance_error);
-      else Message.success({ checkin: '签到成功', balance: '积分已刷新', disable: '账号已停用', revive: '账号已启用', pause: '已暂停选号（保号任务照常）', resume: '已恢复参与选号', remove: '账号已移除' }[type]);
+      else Message.success({ checkin: '签到成功', balance: ['antigravity', 'doubao'].includes(account.provider) ? '授权状态已刷新' : '积分已刷新', disable: '账号已停用', revive: '账号已启用', pause: '已暂停选号（保号任务照常）', resume: '已恢复参与选号', remove: '账号已移除' }[type]);
       await refreshOverview();
       await refreshLogs();
     });
@@ -353,9 +365,11 @@ export function useAccounts() {
     }
   }
   function openAdd(tab = 'login') {
+    Object.assign(antigravityDraft, emptyAntigravityDraft()); Object.assign(doubaoDraft, emptyDoubaoDraft());
     stopLogin();
     addTab.value = tab;
     addProvider.value = provider.value;
+    if (provider.value === 'workbuddy') realm.value = workbuddyRealm.value;
 	traeExpectedUID.value = '';
     Object.assign(traeDraft, { nickname: '', session: '', token: '', device_id: '' });
     Object.assign(qoderDraft, { token: '', nickname: '', uid: '' });
@@ -366,7 +380,38 @@ export function useAccounts() {
     importResult.value = null;
     addVisible.value = true;
   }
-  function closeAdd() { stopLogin(); addVisible.value = false; Object.assign(traeDraft, { nickname: '', session: '', token: '', device_id: '' }); Object.assign(qoderDraft, { token: '', nickname: '', uid: '' }); Object.assign(minimaxDraft, { credential: '', nickname: '', uid: '', auth_kind: '' }); Object.assign(loomyDraft, { credential: '', nickname: '', uid: '', account_uid: '' }); }
+  function closeAdd() { stopLogin(); addVisible.value = false; Object.assign(antigravityDraft, emptyAntigravityDraft()); Object.assign(doubaoDraft, emptyDoubaoDraft()); Object.assign(traeDraft, { nickname: '', session: '', token: '', device_id: '' }); Object.assign(qoderDraft, { token: '', nickname: '', uid: '' }); Object.assign(minimaxDraft, { credential: '', nickname: '', uid: '', auth_kind: '' }); Object.assign(loomyDraft, { credential: '', nickname: '', uid: '', account_uid: '' }); }
+  function updateDoubao(account) {
+    openAdd(); addProvider.value = 'doubao';
+    Object.assign(doubaoDraft, { uid: account.uid, nickname: account.nickname || '' });
+  }
+  async function addDoubao() {
+    return action('doubao-add', async () => {
+      await api('doubao/accounts', { method: 'POST', body: JSON.stringify(doubaoDraft) });
+      closeAdd(); selectProvider('doubao'); Message.success('豆包账号已添加或更新');
+      await refreshOverview();
+    });
+  }
+  function updateAntigravity(account) {
+    openAdd(); addProvider.value = 'antigravity';
+    Object.assign(antigravityDraft, { uid: account.uid, nickname: account.nickname || '', email: account.account_uid || '', project_id: account.project_id || '' });
+  }
+  async function addAntigravity() {
+    return action('antigravity-add', async () => {
+      await api('antigravity/accounts', { method: 'POST', body: JSON.stringify(antigravityDraft) });
+      closeAdd(); selectProvider('antigravity'); Message.success('Antigravity 账号已添加或更新');
+      await refreshOverview();
+    });
+  }
+  async function importAntigravity(file) {
+    return action('antigravity-import', async () => {
+      if (!file || file.size > 4 * 1024 * 1024) throw new Error('请选择 4 MB 以内的授权 JSON');
+      const result = await api('antigravity/import', { method: 'POST', body: await file.text() });
+      if (result.imported) { selectProvider('antigravity'); await refreshOverview(); }
+      if (!result.errors?.length) { closeAdd(); Message.success(`已导入 ${result.imported} 个 Antigravity 账号`); }
+      return result;
+    });
+  }
   function stopQoderLogin() {
     ++qoderAttempt;
     clearTimeout(qoderTimer);
@@ -547,6 +592,7 @@ export function useAccounts() {
       if (attempt !== loginAttempt || !addVisible.value) return;
       if (data.done) {
         closeAdd();
+        selectProvider(realm.value === 'global' ? 'workbuddy-global' : 'workbuddy-cn');
         Message.success('账号已添加');
         if (data.checkin_message) Message.warning(data.checkin_message);
         await refreshOverview();
@@ -583,10 +629,12 @@ export function useAccounts() {
 	api,
     accounts, allLogs, logs, overview, schedule, connected, loading, error, needsKey, busy, now, capabilities,
     desktopClients, desktopJob, desktopError, desktopBusy, desktopClient, isCurrentDesktop, isSwitchingDesktop, switchReason, switchDesktop, captureDesktop,
-    provider, providerName, selectProvider, workbuddyAccounts, traeAccounts, addProvider, traeDraft, traeExpectedUID, addTrae, importTrae, updateTrae,
+    provider, platformSelection, workbuddyRealm, providerName, selectProvider, workbuddyAccounts, traeAccounts, addProvider, traeDraft, traeExpectedUID, addTrae, importTrae, updateTrae,
     qoderAccounts, qoderLogin, qoderDraft, startQoderLogin, stopQoderLogin, addQoder, updateQoder, effectiveHours,
     minimaxAccounts, minimaxDraft, addMiniMax, updateMiniMax, minimaxLogin, startMiniMaxLogin, stopMiniMaxLogin,
     loomyAccounts, loomyDraft, addLoomy, importLoomyLocal, updateLoomy,
+    doubaoAccounts, doubaoDraft, addDoubao, updateDoubao,
+    antigravityAccounts, antigravityDraft, addAntigravity, importAntigravity, updateAntigravity,
     traeLogin, checkTraeLoginAvailable, startTraeLogin, stopTraeLogin,
     remarks, accountName, eligible, signed, pending, credits, totalCredits, unknownBalances, todayLogs,
     allAccounts, allEligible, allSigned, allPending, allTodayLogs, allNextRun,

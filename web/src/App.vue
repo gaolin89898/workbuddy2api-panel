@@ -14,11 +14,7 @@ import BenefitsView from './components/BenefitsView.vue';
 import BillingView from './components/BillingView.vue';
 import GatewayView from './components/GatewayView.vue';
 import AccountDialog from './components/AccountDialog.vue';
-import workbuddyIcon from './assets/platform-workbuddy.png';
-import traeIcon from './assets/platform-trae.png';
-import qoderIcon from './assets/platform-qoder.png';
-import minimaxIcon from './assets/platform-minimax.png';
-import loomyIcon from './assets/platform-loomy.png';
+import PlatformSelect from './components/PlatformSelect.vue';
 
 const localStorage = hostRuntime.storage;
 const model = reactive(useAccounts());
@@ -32,8 +28,8 @@ const switchAccount = ref(null);
 const workspaceScrollbar = ref(null);
 const hostTheme = ref(false);
 const embedded = hostRuntime.embedded;
-watch([view, () => model.provider], ([page, provider]) => {
-  if (page === 'tasks' && provider !== 'workbuddy') model.selectProvider('workbuddy');
+watch([view, () => model.platformSelection], ([page, platform]) => {
+  if (page === 'tasks' && platform !== 'workbuddy-cn') model.selectProvider('workbuddy-cn');
 }, { immediate: true, flush: 'sync' });
 // 网关视图依赖 -gateway 能力：能力关闭时回落账号页（菜单也不渲染入口）。
 watch(() => model.capabilities, caps => {
@@ -48,14 +44,6 @@ async function switchClient() {
   try { await model.switchDesktop(switchAccount.value); switchAccount.value = null; } catch { /* Preserve the confirmation for retry. */ }
 }
 const tabs = computed(() => [...[{ id: 'accounts', name: '账号', icon: IconUserGroup }, { id: 'tasks', name: '任务', icon: IconCheckSquare }, { id: 'billing', name: '明细', icon: IconBook }, { id: 'rewards', name: '奖励', icon: IconGift }, { id: 'settings', name: '签到', icon: IconCalendar }, { id: 'schedules', name: '定时', icon: IconCalendarClock }, { id: 'logs', name: '日志', icon: IconFile }], ...(model.capabilities?.gateway ? [{ id: 'gateway', name: '网关', icon: IconThunderbolt }] : [])]);
-const platforms = [
-  { id: 'workbuddy', name: 'WorkBuddy', icon: workbuddyIcon },
-  { id: 'trae', name: 'Trae', icon: traeIcon },
-  { id: 'qoder', name: 'Qoder', icon: qoderIcon },
-  { id: 'minimax', name: 'MiniMax', icon: minimaxIcon },
-  { id: 'loomy', name: 'Loomy', icon: loomyIcon },
-];
-const platformCounts = computed(() => ({ workbuddy: model.workbuddyAccounts.length, trae: model.traeAccounts.length, qoder: model.qoderAccounts.length, minimax: model.minimaxAccounts.length, loomy: model.loomyAccounts.length }));
 function navigate(value) { view.value = value; location.hash = value; }
 watch(view, () => workspaceScrollbar.value?.scrollTo({ top: 0 }), { flush: 'post' });
 function hashChanged() { view.value = readView(); }
@@ -84,16 +72,15 @@ async function remove() {
   <div :class="['app-shell', { 'dsh-embedded': embedded }]">
     <Sidebar :model="model" :view="view" :dark="dark" :host-theme="hostTheme" @navigate="navigate" @key="openKey" @theme="dark = !dark" />
     <a-scrollbar ref="workspaceScrollbar" outer-class="workspace" class="workspace-scroll-content" tabindex="0" aria-label="页面内容">
-      <header class="mobile-header"><a class="brand" href="#accounts" @click.prevent="navigate('accounts')"><span class="brand-mark">A</span><span><strong>AI 工具箱</strong><small>WorkBuddy · Trae · Qoder · MiniMax · Loomy</small></span></a><div><a-tooltip v-if="!hostTheme" :content="dark ? '浅色主题' : '深色主题'"><a-button :aria-label="dark ? '切换浅色主题' : '切换深色主题'" @click="dark = !dark"><template #icon><icon-sun v-if="dark" /><icon-moon v-else /></template></a-button></a-tooltip><a-tooltip content="添加账号"><a-button type="primary" aria-label="添加账号" @click="model.openAdd()"><template #icon><icon-plus /></template></a-button></a-tooltip></div></header>
-      <main>
-        <div v-if="['accounts', 'billing', 'rewards'].includes(view)" class="platform-bar"><div class="platform-switcher" role="group" aria-label="账号平台"><button v-for="item in platforms" :key="item.id" :class="{ active: model.provider === item.id }" :aria-pressed="model.provider === item.id" @click="model.selectProvider(item.id)"><img class="platform-mark" :src="item.icon" :alt="`${item.name} 图标`" />{{ item.name }}<span class="platform-count">{{ platformCounts[item.id] }}</span></button></div><span v-if="view === 'accounts'">账号管理 · 每日签到</span></div>
+      <header class="mobile-header"><a class="brand" href="#accounts" @click.prevent="navigate('accounts')"><span class="brand-mark">A</span><span><strong>AI 工具箱</strong></span></a><div><a-tooltip v-if="!hostTheme" :content="dark ? '浅色主题' : '深色主题'"><a-button :aria-label="dark ? '切换浅色主题' : '切换深色主题'" @click="dark = !dark"><template #icon><icon-sun v-if="dark" /><icon-moon v-else /></template></a-button></a-tooltip><a-tooltip content="添加账号"><a-button type="primary" aria-label="添加账号" @click="model.openAdd()"><template #icon><icon-plus /></template></a-button></a-tooltip></div></header>
+      <main :class="{ 'billing-workspace': view === 'billing', 'tasks-workspace': view === 'tasks' }">
         <a-alert v-if="model.error && !model.needsKey" type="warning" class="connection-alert">{{ model.error }}<template #action><a-button size="mini" @click="model.connect().catch(() => {})">重新连接</a-button></template></a-alert>
-        <AccountView v-if="view === 'accounts'" :key="model.provider" :model="model" @remark="editRemark" @remove="removeAccount = $event" @switch="requestSwitch" @navigate="navigate" />
+        <AccountView v-if="view === 'accounts'" :key="model.platformSelection" :model="model" @remark="editRemark" @remove="removeAccount = $event" @switch="requestSwitch" @navigate="navigate"><template #platform-switcher><PlatformSelect :model="model" /></template></AccountView>
         <ScheduleView v-else-if="view === 'settings'" :model="model" :embedded="embedded" @navigate="navigate" @key="openKey" />
         <SchedulesView v-else-if="view === 'schedules'" :model="model" :embedded="embedded" @navigate="navigate" @key="openKey" />
-        <BillingView v-else-if="view === 'billing'" :model="model" />
+        <BillingView v-else-if="view === 'billing'" :model="model"><template #platform-switcher><PlatformSelect :model="model" /></template></BillingView>
         <GatewayView v-else-if="view === 'gateway' && model.capabilities?.gateway" :model="model" />
-        <BenefitsView v-else-if="['tasks', 'rewards'].includes(view)" :model="model" :section="view" />
+        <BenefitsView v-else-if="['tasks', 'rewards'].includes(view)" :model="model" :section="view"><template v-if="view === 'rewards'" #platform-switcher><PlatformSelect :model="model" /></template></BenefitsView>
         <LogsView v-else :model="model" />
       </main>
     </a-scrollbar>

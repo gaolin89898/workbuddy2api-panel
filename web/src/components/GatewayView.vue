@@ -1,8 +1,15 @@
-﻿<script setup>
+<script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { Alert as AAlert, Button as AButton, Empty as AEmpty, Input as AInput, InputPassword as AInputPassword, Message, Select as ASelect, Option as AOption, Switch as ASwitch, Textarea as ATextarea, Tooltip as ATooltip } from '@arco-design/web-vue';
+import { Alert as AAlert, Button as AButton, Empty as AEmpty, Input as AInput, InputPassword as AInputPassword, Message, Select as ASelect, Option as AOption, Scrollbar as AScrollbar, Switch as ASwitch, Textarea as ATextarea, Tooltip as ATooltip } from '@arco-design/web-vue';
 import { IconCopy, IconLink, IconRefresh, IconSearch, IconArrowRight, IconStorage, IconSchedule, IconSwap, IconSettings, IconCodeSquare, IconFile, IconSave, IconThunderbolt, IconSafe, IconArrowRise } from '@arco-design/web-vue/es/icon';
 import { clockTime, formatNumber } from '../useAccounts';
+import workbuddyIcon from '../assets/platform-workbuddy.png';
+import traeIcon from '../assets/platform-trae.png';
+import qoderIcon from '../assets/platform-qoder.png';
+import minimaxIcon from '../assets/platform-minimax.png';
+import loomyIcon from '../assets/platform-loomy.png';
+import antigravityIcon from '../assets/platform-antigravity.svg';
+import doubaoIcon from '../assets/platform-doubao.png';
 
 // GatewayView 网关（设计稿 GATEWAY · 用量/模型/请求日志/网关设置 四页合一）：
 // 页头 Segments 切换 + Gateway Status 卡 + 带坐标轴的用量图表 + Live Requests 流；
@@ -16,8 +23,30 @@ const sections = [
   { id: 'settings', name: '网关设置' },
 ];
 const loading = ref(false);
+const supplier = ref('auto'), supplierReady = ref(false), supplierSaving = ref(false);
+const suppliers = [
+  { id: 'auto', name: '自动' },
+  { id: 'workbuddy-cn', name: 'WorkBuddy 国内版', icon: workbuddyIcon },
+  { id: 'workbuddy-global', name: 'WorkBuddy 国际版', icon: workbuddyIcon },
+  { id: 'trae', name: 'Trae', icon: traeIcon },
+  { id: 'qoder', name: 'Qoder', icon: qoderIcon },
+  { id: 'minimax', name: 'MiniMax', icon: minimaxIcon },
+  { id: 'loomy', name: 'Loomy', icon: loomyIcon },
+  { id: 'antigravity', name: 'Antigravity', icon: antigravityIcon },
+  { id: 'doubao', name: '豆包', icon: doubaoIcon },
+];
+const supplierById = Object.fromEntries(suppliers.map(item => [item.id, item]));
+let modelLoadVersion = 0;
 const usage = ref(null), models = ref(null), probes = ref({}), settings = ref(null), restartRequired = ref([]);
 const overview = computed(() => props.model.overview || {});
+const availableAccounts = computed(() => {
+  if (supplier.value.startsWith('workbuddy-')) {
+    const realm = supplier.value === 'workbuddy-global' ? 'global' : 'cn';
+    return (overview.value.accounts || []).filter(account => (account.realm || 'cn') === realm && !account.disabled && !account.paused && !account.cooling).length;
+  }
+  if (supplier.value !== 'auto') return Number(overview.value.provider_totals?.[supplier.value]?.healthy || 0);
+  return Number(overview.value.healthy ?? overview.value.total ?? 0) + Object.values(overview.value.provider_totals || {}).reduce((sum, provider) => sum + Number(provider.healthy || 0), 0);
+});
 const usageWindow = ref(24);
 const usageDim = ref('account');
 const modelSearch = ref(''), modelRealm = ref(''), modelSort = ref('default');
@@ -25,9 +54,9 @@ const reqOutcome = ref(''), reqLimit = ref(100), reqRange = ref(0), reqQuery = r
 const requests = ref(null), archiveState = ref(null);
 const requestMetrics = ref(null);
 const usagePeriod = computed(() => usageWindow.value === 24 ? '最近 24 小时' : `最近 ${usageWindow.value / 24} 天`);
-const usageDaily = computed(() => series.value.some(point => point.scope === 'day'));
+// 24 小时按小时聚合，3 天及以上按天聚合。
+const usageDaily = computed(() => usageWindow.value >= 72);
 const endpoint = computed(() => location.origin + '/v1/chat/completions');
-const host = location.host;
 function copyText(value, label = '已复制') {
   navigator.clipboard.writeText(value).then(() => Message.success(label)).catch(() => Message.error('复制失败'));
 }
@@ -47,7 +76,10 @@ async function load(target = section.value) {
       archiveState.value = metrics?.archive || null;
       requestMetrics.value = metrics;
     } else if (target === 'models') {
+      if (!supplierReady.value && !await ensureConfig()) return;
+      const version = ++modelLoadVersion;
       const [md, pr] = await Promise.all([props.model.api('models'), props.model.api('model_probes').catch(() => ({}))]);
+      if (version !== modelLoadVersion) return;
       models.value = md;
       probes.value = pr.probes || {};
     } else if (target === 'requests') {
@@ -62,6 +94,7 @@ async function load(target = section.value) {
       archiveState.value = metrics?.archive || null;
     } else if (target === 'settings') {
       const data = await props.model.api('settings/gateway');
+      applyGatewayConfig(data.config || {});
       settings.value = data;
       restartRequired.value = [];
       hydrate(data.config || {});
@@ -124,10 +157,75 @@ const endpointChips = [
 // ── 用量 ────────────────────────────────────────────────────────
 const totals = computed(() => usage.value?.totals || {});
 const dimRows = computed(() => usage.value ? (usageDim.value === 'account' ? usage.value.by_account : usageDim.value === 'model' ? usage.value.by_model : usage.value.by_realm) || [] : []);
-const series = computed(() => usage.value?.series || []);
+// 时序图按「所选窗口」铺满时间轴：服务端只返回有数据的分片，数据只有几小时时
+// 切 24h/3 天/7 天/30 天会看到完全一样的柱子，被当成"点了没反应"。这里把窗口内的
+// 分片补齐（无数据填 0），切换窗口即刻看到坐标轴范围变化。
+const CHINA_OFFSET = 8 * 3600000;
+const HOUR_MS = 3600000, DAY_MS = 86400000;
+function chinaBucketStart(ms, daily) {
+  const step = daily ? DAY_MS : HOUR_MS;
+  return Math.floor((ms + CHINA_OFFSET) / step) * step - CHINA_OFFSET;
+}
+function chinaBucketKey(ms, daily) {
+  const date = new Date(ms + CHINA_OFFSET);
+  const pad = value => String(value).padStart(2, '0');
+  const day = `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+  return daily ? day : `${day}T${pad(date.getUTCHours())}`;
+}
+function pointBucketStart(point) {
+  const value = String(point.t || '');
+  const timestamp = point.scope === 'day' ? Date.parse(value + 'T00:00:00+08:00') : Date.parse(value + ':00:00+08:00');
+  return isNaN(timestamp) ? null : timestamp;
+}
+const series = computed(() => {
+  const daily = usageDaily.value;
+  const step = daily ? DAY_MS : HOUR_MS;
+  const count = Math.max(1, Math.round(usageWindow.value / (daily ? 24 : 1)));
+  const end = chinaBucketStart(Date.now(), daily);
+  const start = end - (count - 1) * step;
+  const buckets = Array.from({ length: count }, (_, index) => ({
+    scope: daily ? 'day' : 'hour',
+    t: chinaBucketKey(start + index * step, daily),
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    requests: 0,
+  }));
+  for (const point of usage.value?.series || []) {
+    const timestamp = pointBucketStart(point);
+    if (timestamp == null) continue;
+    // 按天聚合时，小时分片要落到它所属的那一天，而不是要求整点对齐。
+    const index = Math.floor((chinaBucketStart(timestamp, daily) - start) / step);
+    if (index < 0 || index >= count) continue;
+    buckets[index].prompt_tokens += Number(point.prompt_tokens || 0);
+    buckets[index].completion_tokens += Number(point.completion_tokens || 0);
+    buckets[index].requests += Number(point.requests || 0);
+  }
+  return buckets;
+});
 const seriesMax = computed(() => Math.max(1, ...series.value.map(p => Number((p.prompt_tokens || 0) + (p.completion_tokens || 0)))));
 const chartTicks = computed(() => [1, 2 / 3, 1 / 3, 0].map(ratio => ({ ratio, label: seriesMax.value < 3 ? String(Number((seriesMax.value * ratio).toFixed(1))) : fmtK(Math.round(seriesMax.value * ratio)) })));
 const peakPoint = computed(() => series.value.reduce((best, point) => Number((point.prompt_tokens || 0) + (point.completion_tokens || 0)) > Number((best?.prompt_tokens || 0) + (best?.completion_tokens || 0)) ? point : best, null));
+// 悬停提示：原生 title 要停顿一秒才弹、还会被图表裁掉，这里自己画一个。
+const hoverIndex = ref(-1);
+const hoverBar = computed(() => {
+  const point = series.value[hoverIndex.value];
+  if (!point) return null;
+  const count = series.value.length || 1;
+  const prompt = Number(point.prompt_tokens || 0), completion = Number(point.completion_tokens || 0);
+  const total = prompt + completion;
+  const height = Math.min(100, total / seriesMax.value * 100);
+  const flip = height > 55;
+  return {
+    left: Math.min(92, Math.max(8, (hoverIndex.value + 0.5) / count * 100)) + '%',
+    top: Math.max(0, 100 - height) + '%',
+    transform: flip ? 'translate(-50%, 8px)' : 'translate(-50%, calc(-100% - 8px))',
+    time: pointTime(point),
+    prompt: formatNumber(prompt),
+    completion: formatNumber(completion),
+    total: formatNumber(total),
+    requests: Number(point.requests || 0),
+  };
+});
 const feedRows = ref([]);
 function fmtK(value) { const n = Number(value || 0); return n >= 1000 ? Math.round(n / 1000) + 'K' : String(n); }
 function compactTokens(value) {
@@ -155,7 +253,7 @@ function xLabel(point, index, count) {
   if (index % Math.ceil(count / 6) === 0) return pointTime(point);
   return '';
 }
-function pointTitle(point) { return `${point.t}\nprompt ${formatNumber(point.prompt_tokens)} · completion ${formatNumber(point.completion_tokens)}`; }
+function pointTitle(point) { return `${point.t}\n输入 ${formatNumber(point.prompt_tokens)} · 输出 ${formatNumber(point.completion_tokens)}`; }
 function switchWindow(value) { usageWindow.value = value; load('usage'); }
 function outcomeName(row) { return ({ ok: '成功', http_error: 'HTTP 错误', stream_error: '流错误', interrupted: '中断', client_error: '客户端错误' })[row.outcome] || row.outcome || '--'; }
 
@@ -165,7 +263,7 @@ const chartKpis = computed(() => {
   const prompt = Number(totals.prompt_tokens || 0), completion = Number(totals.completion_tokens || 0);
   const perK = totals.total_tokens > 0 ? (totals.credits / totals.total_tokens * 1000).toFixed(2) : '--';
   return [
-    { label: 'Tokens', value: compactTokens(totals.total_tokens), sub: `prompt ${compactTokens(prompt)} · completion ${compactTokens(completion)}` },
+    { label: 'Tokens', value: compactTokens(totals.total_tokens), sub: `输入 ${compactTokens(prompt)} · 输出 ${compactTokens(completion)}` },
     { label: '积分消耗', value: fmtCost(totals.credits), sub: totals.total_tokens > 0 ? perK + ' 积分 / 1K tokens' : '--', accent: true },
     { label: '缓存命中', value: totals.cache_hit_tokens || totals.cache_miss_tokens ? Number(totals.cache_hit_rate || 0).toFixed(1) + '%' : '--', sub: `命中 ${fmtK(totals.cache_hit_tokens)} · 未命中 ${fmtK(totals.cache_miss_tokens)}` },
   ];
@@ -176,14 +274,46 @@ const modelUsageRows = computed(() => {
   return rows.map(row => ({ ...row, barWidth: Number(row.total_tokens || 0) / max * 100, realm: row.realm === 'global' || row.key.startsWith('global:') ? '国际' : row.realm === 'cn' || row.key.startsWith('cn:') ? '国内' : '' }));
 });
 const configCache = ref(null);
+let configLoading;
+function applyGatewayConfig(config) {
+  const nextSupplier = config.gateway?.supplier || 'auto';
+  if (nextSupplier !== supplier.value) {
+    ++modelLoadVersion;
+    models.value = null;
+    modelRealm.value = '';
+  }
+  configCache.value = config;
+  supplier.value = nextSupplier;
+  supplierReady.value = true;
+}
 async function ensureConfig() {
   if (configCache.value) return configCache.value;
-  try { const data = await props.model.api('settings/gateway'); configCache.value = data.config || {}; } catch { configCache.value = {}; }
-  return configCache.value;
+  if (!configLoading) {
+    configLoading = props.model.api('settings/gateway').then(data => {
+      applyGatewayConfig(data.config || {});
+      return configCache.value;
+    }).catch(cause => { Message.error(cause.message); return null; }).finally(() => { configLoading = null; });
+  }
+  return configLoading;
+}
+async function changeSupplier(value) {
+  if (value === supplier.value || supplierSaving.value) return;
+  supplierSaving.value = true;
+  try {
+    await props.model.api('settings/gateway', { method: 'POST', body: JSON.stringify({ gateway: { supplier: value } }) });
+    ++modelLoadVersion;
+    applyGatewayConfig({ ...configCache.value, gateway: { ...configCache.value?.gateway, supplier: value } });
+    if (settings.value) settings.value.config = { ...settings.value.config, gateway: configCache.value.gateway };
+    models.value = null;
+    modelRealm.value = '';
+    Message.success('供应应用已切换为' + supplierById[value].name);
+    if (section.value === 'models') await load('models');
+  } catch (cause) { Message.error(cause.message); }
+  finally { supplierSaving.value = false; }
 }
 const runtimeRows = computed(() => {
   const c = configCache.value || {};
-  const strategyName = value => ({ weighted_random: '加权随机', round_robin: '轮询', sequential_exhaust: '顺序耗尽' })[value] || value || '--';
+  const strategyName = value => ({ weighted_random: '加权随机', round_robin: '轮询', sequential_exhaust: '顺序耗尽', single_account: '单账号耗尽' })[value] || value || '--';
   return [
     { row: '调度策略', value: c.pool?.strategy?.domestic === c.pool?.strategy?.international ? strategyName(c.pool?.strategy?.domestic) : strategyName(c.pool?.strategy?.domestic) + ' / ' + strategyName(c.pool?.strategy?.international) },
     { row: '在途上限', value: `单号 ${c.pool?.max_in_flight ?? '--'} · 全局 ${c.pool?.max_in_flight_global ?? '--'}` },
@@ -198,7 +328,7 @@ onMounted(() => ensureConfig());
 // ── 模型 ────────────────────────────────────────────────────────
 const modelRows = computed(() => {
   const rows = (models.value?.models || []).filter(row =>
-    (!modelRealm.value || row.id.startsWith(modelRealm.value + ':')) &&
+    (!modelRealm.value || row.id.startsWith(modelRealm.value + ':') || row.id.startsWith(modelRealm.value + '/')) &&
     (!modelSearch.value || (row.id + ' ' + (row.name || '') + ' ' + (row.description || '') + ' ' + (row.vendor || '')).toLowerCase().includes(modelSearch.value.toLowerCase())));
   const sorted = [...rows];
   if (modelSort.value === 'credits') sorted.sort((a, b) => (a.credits ?? 9e9) - (b.credits ?? 9e9));
@@ -210,7 +340,7 @@ const modelRows = computed(() => {
 const modelMetrics = computed(() => {
   const rows = models.value?.models || [];
   return [
-    { label: '模型', value: String(rows.length), sub: '双域目录' },
+    { label: '模型', value: String(rows.length), sub: supplier.value === 'auto' ? '全部应用' : supplierById[supplier.value]?.name },
     { label: '支持思考', value: String(rows.filter(row => row.supports_reasoning).length), sub: 'reasoning' },
     { label: '支持工具', value: String(rows.filter(row => row.supports_tool_call).length), sub: 'tool call' },
     { label: '视觉', value: String(rows.filter(row => row.supports_images).length), sub: 'images' },
@@ -311,7 +441,7 @@ function hydrate(config) {
       include_disabled_in_tasks: !!config.schedule?.include_disabled_in_tasks,
     },
     pool: {
-      strategy_domestic: config.pool?.strategy?.domestic || 'weighted_random', strategy_international: config.pool?.strategy?.international || 'weighted_random',
+      strategy_domestic: config.pool?.strategy?.domestic || 'single_account', strategy_international: config.pool?.strategy?.international || 'single_account',
       order_domestic: (config.pool?.account_order?.domestic || []).join(', '), order_international: (config.pool?.account_order?.international || []).join(', '),
       max_in_flight: config.pool?.max_in_flight ?? 3, max_in_flight_global: config.pool?.max_in_flight_global ?? 2,
       breaker_threshold: config.pool?.breaker_threshold ?? 3, breaker_cooldown: config.pool?.breaker_cooldown || '30m', breaker_cooldown_max: config.pool?.breaker_cooldown_max || '6h',
@@ -381,13 +511,12 @@ async function saveSettings() {
 </script>
 
 <template>
-  <section class="gateway-view" :class="{ 'gateway-settings-active': section === 'settings', 'gateway-usage-active': section === 'usage' }">
+  <section class="gateway-view" :class="{ 'gateway-settings-active': section === 'settings', 'gateway-usage-active': section === 'usage', 'gateway-models-active': section === 'models', 'gateway-requests-active': section === 'requests' }">
     <header class="page-heading">
-      <div>
-        <div class="eyebrow">GATEWAY · {{ sections.find(item => item.id === section)?.name }}</div>
-        <h1>网关</h1>
-        <div class="gateway-subline"><span>{{ host }} · {{ overview.healthy ?? overview.total ?? '--' }} 个账号可用 · 粘性会话 {{ overview.sticky_sessions ?? 0 }}</span><i class="subline-dot" /><span class="subline-state">服务运行中</span></div>
-      </div>
+      <a-select :model-value="supplier" class="platform-select gateway-supplier-select" aria-label="供应应用" :loading="supplierSaving" :disabled="!supplierReady || supplierSaving || saving" @change="changeSupplier">
+        <template #label="{ data }"><span class="platform-option"><img v-if="supplierById[data.value]?.icon" class="platform-mark" :src="supplierById[data.value].icon" alt="" /><icon-swap v-else /><span>{{ supplierById[data.value]?.name }}</span></span></template>
+        <a-option v-for="item in suppliers" :key="item.id" :value="item.id" :label="item.name"><span class="platform-option"><img v-if="item.icon" class="platform-mark" :src="item.icon" alt="" /><icon-swap v-else /><span>{{ item.name }}</span></span></a-option>
+      </a-select>
       <div class="log-heading-actions">
         <div class="filter-tabs gateway-segments" role="group" aria-label="网关分区">
           <button v-for="item in sections" :key="item.id" :class="{ active: section === item.id }" :aria-pressed="section === item.id" @click="section = item.id">{{ item.name }}</button>
@@ -401,7 +530,7 @@ async function saveSettings() {
         <div class="status-top">
           <div class="status-left">
             <span class="status-halo"><i /></span>
-            <div class="status-text"><strong>服务在线</strong><small>已运行 {{ Math.floor((overview.uptime_sec || 0) / 86400) ? Math.floor(overview.uptime_sec / 86400) + ' 天 ' : '' }}{{ Math.floor((overview.uptime_sec || 0) % 86400 / 3600) }} 小时 · {{ overview.healthy ?? overview.total ?? '--' }} 个账号可用</small></div>
+            <div class="status-text"><strong>服务在线</strong><small>已运行 {{ Math.floor((overview.uptime_sec || 0) / 86400) ? Math.floor(overview.uptime_sec / 86400) + ' 天 ' : '' }}{{ Math.floor((overview.uptime_sec || 0) % 86400 / 3600) }} 小时 · {{ availableAccounts }} 个账号可用</small></div>
             <i class="status-vdivider" />
             <div class="endpoint-chips">
               <span v-for="chip in endpointChips" :key="chip.path" class="endpoint-chip"><b :class="{ get: chip.method === 'GET' }">{{ chip.method }}</b>{{ chip.path }}</span>
@@ -433,27 +562,33 @@ async function saveSettings() {
             <div class="chart-plot">
               <div class="chart-grid"><i v-for="tick in chartTicks" :key="tick.ratio" :style="{ bottom: tick.ratio * 100 + '%' }" /></div>
               <div class="chart-bars">
-                <div v-for="(point, index) in series" :key="index" class="usage-bar" :title="pointTitle(point)">
+                <div v-for="(point, index) in series" :key="index" class="usage-bar" :class="{ hovered: hoverIndex === index }" @mouseenter="hoverIndex = index" @mouseleave="hoverIndex = -1" :aria-label="pointTitle(point)">
                   <i class="seg completion" :style="{ height: barHeights(point).completion }" />
                   <i class="seg prompt" :style="{ height: barHeights(point).prompt }" />
                 </div>
+              </div>
+              <div v-if="hoverBar" class="chart-tip" :style="{ left: hoverBar.left, top: hoverBar.top, transform: hoverBar.transform }">
+                <strong>{{ hoverBar.time }}</strong>
+                <span><i class="usage-swatch prompt" />输入 {{ hoverBar.prompt }}</span>
+                <span><i class="usage-swatch completion" />输出 {{ hoverBar.completion }}</span>
+                <em>合计 {{ hoverBar.total }}<template v-if="hoverBar.requests"> · {{ hoverBar.requests }} 次</template></em>
               </div>
               <a-empty v-if="!series.some(point => point.prompt_tokens || point.completion_tokens)" class="chart-empty" :description="loading ? '正在加载用量' : '暂无用量数据'" />
             </div>
           </div>
           <div class="chart-xlabels"><span v-for="(point, index) in series" :key="index">{{ xLabel(point, index, series.length) }}</span></div>
-          <footer class="chart-foot"><span class="chart-peak"><icon-arrow-rise />峰值 {{ peakPoint && (peakPoint.prompt_tokens || peakPoint.completion_tokens) ? pointTime(peakPoint) + ' · ' + fmtK(Number(peakPoint.prompt_tokens || 0) + Number(peakPoint.completion_tokens || 0)) : '--' }} tokens</span><span class="usage-chart-legend"><i class="usage-swatch prompt" />prompt<i class="usage-swatch completion" />completion</span></footer>
+          <footer class="chart-foot"><span class="chart-peak"><icon-arrow-rise />峰值 {{ peakPoint && (peakPoint.prompt_tokens || peakPoint.completion_tokens) ? pointTime(peakPoint) + ' · ' + fmtK(Number(peakPoint.prompt_tokens || 0) + Number(peakPoint.completion_tokens || 0)) : '--' }} tokens</span><span class="usage-chart-legend"><i class="usage-swatch prompt" />输入<i class="usage-swatch completion" />输出</span></footer>
         </div>
       </section>
         <aside class="live-card">
           <header class="live-head"><div><i class="live-dot" /><h2>实时请求</h2><span class="live-badge">LIVE</span></div><span>5s</span></header>
-          <div class="live-feed">
+          <a-scrollbar class="live-feed" outer-class="live-feed-wrap">
             <div v-for="row in feedRows" :key="row.request_id" class="feed-row" :class="{ 'feed-error': row.outcome !== 'ok' }">
               <div class="feed-line1"><span class="feed-model"><i class="live-dot" /><span class="mono" :title="row.model || row.path">{{ row.model || row.path }}</span></span><small>{{ (Number(row.duration_ms || 0) / 1000).toFixed(1) }}s</small></div>
               <div class="feed-line2"><time>{{ new Date(row.time).toLocaleTimeString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) }}</time><span :title="row.account">{{ row.account || '--' }}</span><small v-if="row.outcome === 'ok'">{{ compactTokens(row.total_tokens) }} tok</small><small v-else class="feed-outcome">{{ row.status || '' }} {{ outcomeName(row) }}</small></div>
             </div>
             <a-empty v-if="!feedRows.length" description="暂无请求" />
-          </div>
+          </a-scrollbar>
           <footer class="live-foot"><span><i class="live-dot" />成功率 {{ statusMetrics[1].value }} · {{ statusMetrics[0].value }} 次</span><button @click="section = 'requests'">全部请求<icon-arrow-right /></button></footer>
         </aside>
       </div>
@@ -464,7 +599,7 @@ async function saveSettings() {
             <div class="ledger-title inline"><h2>模型用量</h2><small>{{ usagePeriod }}</small></div>
             <a-button size="small" type="text" @click="section = 'models'">模型目录<icon-arrow-right /></a-button>
           </header>
-          <div class="table-wrap"><table>
+          <a-scrollbar class="table-scroll" outer-class="table-wrap"><table>
             <thead><tr><th>模型</th><th>请求</th><th>Tokens</th><th>积分</th><th>每百万</th><th>缓存</th></tr></thead>
             <tbody>
               <tr v-for="row in modelUsageRows" :key="row.key">
@@ -476,7 +611,7 @@ async function saveSettings() {
                 <td>{{ row.cache_hit_tokens || row.cache_miss_tokens ? Number(row.cache_hit_rate || 0).toFixed(1) + '%' : '--' }}</td>
               </tr>
             </tbody>
-          </table><a-empty v-if="!modelUsageRows.length" description="暂无模型用量" /></div>
+          </table></a-scrollbar><a-empty v-if="!modelUsageRows.length" description="暂无模型用量" />
         </section>
         <aside class="panel-card runtime-card">
           <header class="ledger-head">
@@ -491,16 +626,16 @@ async function saveSettings() {
     </template>
 
     <template v-else-if="section === 'models'">
-      <section class="panel-card">
+      <section class="panel-card models-summary">
         <div class="status-metrics"><div v-for="metric in modelMetrics" :key="metric.label" class="status-metric"><span>{{ metric.label }}</span><strong>{{ metric.value }}</strong><small>{{ metric.sub }}</small></div></div>
       </section>
-      <section class="panel-card">
+      <section class="panel-card models-card">
         <div class="benefit-toolbar">
           <a-input v-model="modelSearch" allow-clear placeholder="搜索模型 ID / 名称 / 描述 / 厂商" aria-label="搜索模型"><template #prefix><icon-search /></template></a-input>
-          <a-select v-model="modelRealm" style="width: 140px" aria-label="按域筛选"><a-option value="">全部域</a-option><a-option value="cn">国内版 CN</a-option><a-option value="global">国际版 Global</a-option></a-select>
+          <a-select v-if="supplier === 'auto'" v-model="modelRealm" style="width: 140px" aria-label="按平台筛选"><a-option value="">全部平台</a-option><a-option value="cn">WorkBuddy CN</a-option><a-option value="global">WorkBuddy Global</a-option><a-option value="loomy">Loomy</a-option><a-option value="minimax">MiniMax</a-option><a-option value="qoder">Qoder</a-option><a-option value="trae">Trae</a-option><a-option value="antigravity">Antigravity</a-option><a-option value="doubao">豆包</a-option></a-select>
           <a-select v-model="modelSort" style="width: 160px" aria-label="排序方式"><a-option value="default">上游默认顺序</a-option><a-option value="credits">积分倍率低→高</a-option><a-option value="context">上下文大→小</a-option><a-option value="output">最大输出大→小</a-option><a-option value="name">模型 ID A→Z</a-option></a-select>
         </div>
-        <div class="table-wrap"><table>
+        <a-scrollbar class="table-scroll" outer-class="table-wrap"><table>
           <thead><tr><th>模型</th><th>积分倍率</th><th>默认档</th><th>支持档位</th><th>上下文</th><th>最大输出（实测）</th><th>能力</th></tr></thead>
           <tbody>
             <tr v-for="row in modelRows" :key="row.id">
@@ -513,24 +648,24 @@ async function saveSettings() {
               <td><a-tag v-for="tag in capabilityTags(row)" :key="tag" size="small">{{ tag }}</a-tag><span v-if="!capabilityTags(row).length">--</span></td>
             </tr>
           </tbody>
-        </table><a-empty v-if="!modelRows.length" description="暂无模型（需至少一个可用账号）" /></div>
+        </table></a-scrollbar><a-empty v-if="!modelRows.length" description="暂无模型（需至少一个可用账号）" />
         <footer class="ledger-foot"><span>实测上限来自 scripts/probe_max_tokens.py 的探测结果（/panel/api/model_probes）</span><span>共 {{ modelRows.length }} 个模型</span></footer>
       </section>
     </template>
 
     <template v-else-if="section === 'requests'">
-      <section class="panel-card">
+      <section class="panel-card requests-summary">
         <div class="status-metrics"><div v-for="metric in requestSummary" :key="metric.label" class="status-metric"><span>{{ metric.label }}</span><strong>{{ metric.value }}</strong><small>{{ metric.sub }}</small></div></div>
       </section>
-      <section class="panel-card">
+      <section class="panel-card requests-card">
         <div class="benefit-toolbar">
           <a-input v-model="reqQuery" allow-clear placeholder="搜索模型 / 账号 / IP / UA / 请求 ID" aria-label="搜索请求记录"><template #prefix><icon-search /></template></a-input>
           <a-select v-model="reqOutcome" style="width: 140px" aria-label="按结果筛选" @change="load('requests')"><a-option value="">全部结果</a-option><a-option value="success">成功</a-option><a-option value="http_error">HTTP 错误</a-option><a-option value="stream_error">流错误</a-option><a-option value="interrupted">中断</a-option></a-select>
           <a-select v-model="reqRange" style="width: 130px" aria-label="时间范围" @change="load('requests')"><a-option :value="0">全部（限条数）</a-option><a-option :value="86400">最近 24 小时</a-option><a-option :value="604800">最近 7 天</a-option></a-select>
           <a-select v-model="reqLimit" style="width: 120px" aria-label="读取条数" @change="load('requests')"><a-option :value="100">最近 100 条</a-option><a-option :value="300">最近 300 条</a-option><a-option :value="1000">最近 1000 条</a-option></a-select>
-          <a-button :disabled="!requestRows.length" @click="exportRequests">导出 CSV</a-button>
+          <a-button class="csv-export" :disabled="!requestRows.length" @click="exportRequests">导出 CSV</a-button>
         </div>
-        <div class="table-wrap"><table>
+        <a-scrollbar class="table-scroll" outer-class="table-wrap"><table>
           <thead><tr><th>时间</th><th>结果</th><th>模型</th><th>账号</th><th>来源</th><th>耗时</th><th>Tokens</th><th>积分</th><th>请求 ID</th></tr></thead>
           <tbody>
             <tr v-for="row in requestRows" :key="row.request_id">
@@ -542,10 +677,10 @@ async function saveSettings() {
               <td>{{ row.duration_ms }}ms<small v-if="row.ttfb_ms" class="benefit-detail">TTFB {{ row.ttfb_ms }}ms</small></td>
               <td>{{ row.total_tokens ? formatNumber(row.total_tokens) : '--' }}</td>
               <td>{{ row.credit_known ? row.credit : '--' }}</td>
-              <td class="mono request-id"><span>{{ row.request_id }}</span><a-button type="text" size="mini" aria-label="复制请求 ID" @click="copyText(row.request_id, '请求 ID 已复制')"><template #icon><icon-copy /></template></a-button></td>
+              <td class="mono request-id"><span class="request-id-text">{{ row.request_id }}</span><a-button type="text" size="mini" aria-label="复制请求 ID" @click="copyText(row.request_id, '请求 ID 已复制')"><template #icon><icon-copy /></template></a-button></td>
             </tr>
           </tbody>
-        </table><a-empty v-if="!requestRows.length" description="暂无请求记录" /></div>
+        </table></a-scrollbar><a-empty v-if="!requestRows.length" description="暂无请求记录" />
         <footer class="ledger-foot"><span>归档 {{ archiveState?.enabled ? '开启 · 保留 ' + (archiveState.retention_days ?? '?') + ' 天' : '关闭（仅内存指标）' }}</span><span>共 {{ requestRows.length }} 条</span></footer>
       </section>
     </template>
@@ -605,8 +740,8 @@ async function saveSettings() {
           <section v-show="activeSection === 'pool'" id="settings-pool" class="settings-section">
             <header class="ledger-head"><div class="ledger-title"><h2>选号与流量治理</h2><small>双域策略、熔断冷却与权重</small></div></header>
             <div class="settings-grid">
-              <label>国内版调度策略<a-select v-model="form.pool.strategy_domestic"><a-option value="weighted_random">加权随机（默认）</a-option><a-option value="round_robin">轮询</a-option><a-option value="sequential_exhaust">顺序耗尽</a-option></a-select></label>
-              <label>国际版调度策略<a-select v-model="form.pool.strategy_international"><a-option value="weighted_random">加权随机（默认）</a-option><a-option value="round_robin">轮询</a-option><a-option value="sequential_exhaust">顺序耗尽</a-option></a-select></label>
+              <label>国内版调度策略<a-select v-model="form.pool.strategy_domestic"><a-option value="single_account">单账号耗尽</a-option><a-option value="weighted_random">加权随机</a-option><a-option value="round_robin">轮询</a-option><a-option value="sequential_exhaust">顺序耗尽</a-option></a-select></label>
+              <label>国际版调度策略<a-select v-model="form.pool.strategy_international"><a-option value="single_account">单账号耗尽</a-option><a-option value="weighted_random">加权随机</a-option><a-option value="round_robin">轮询</a-option><a-option value="sequential_exhaust">顺序耗尽</a-option></a-select></label>
               <label>国内版账号顺序（UID，逗号分隔）<a-input v-model="form.pool.order_domestic" placeholder="uid1, uid2" /></label>
               <label>国际版账号顺序（UID）<a-input v-model="form.pool.order_international" placeholder="uid1, uid2" /></label>
               <label>单账号最大在途（0 = 不限）<a-input v-model="form.pool.max_in_flight" type="number" min="0" /></label>
@@ -693,7 +828,7 @@ async function saveSettings() {
 
 <style scoped>
 .gateway-usage-active { gap: 18px; }
-.gateway-usage-active > .page-heading { margin: 0; min-height: 84px; }
+.gateway-usage-active > .page-heading { margin: 0; }
 .gateway-usage-active .eyebrow { font-size: 10px; line-height: 14px; }
 .gateway-usage-active h1 { line-height: 42px; margin: 5px 0 4px; }
 .gateway-usage-active .gateway-subline { flex-wrap: wrap; line-height: 19px; }
@@ -741,11 +876,21 @@ async function saveSettings() {
 .usage-trend .chart-grid, .usage-trend .chart-bars { inset: 0; }
 .usage-trend .chart-grid i { border-top-style: solid; }
 .usage-trend .chart-grid i:first-child { border-top-color: var(--line); }
-.usage-trend .chart-bars { gap: 5px; }
-.usage-trend .usage-bar { min-width: 0; gap: 0; }
+.usage-trend .chart-bars { gap: 5px; justify-content: space-around; }
+.usage-trend .usage-bar { min-width: 0; max-width: 18px; gap: 0; }
 .usage-trend .usage-bar .seg { flex-shrink: 0; }
 .usage-trend .usage-bar .seg.completion { background: #a6b2ff; opacity: 1; border-radius: 3px 3px 0 0; box-shadow: inset 0 -2px var(--surface); }
 .usage-trend .usage-bar .seg.prompt { border-radius: 0; }
+.usage-trend .usage-bar { cursor: default; outline: none; }
+.usage-trend .usage-bar.hovered .seg { filter: brightness(1.15); }
+.usage-trend .usage-bar:focus-visible { box-shadow: 0 0 0 2px var(--accent); border-radius: 3px; }
+.chart-tip { position: absolute; z-index: 6; display: flex; flex-direction: column; gap: 2px; min-width: 104px; padding: 7px 10px; border-radius: 8px; background: #15161a; color: #eef0f5; font-size: 10.5px; line-height: 1.55; box-shadow: 0 8px 22px rgba(15, 17, 24, .24); pointer-events: none; white-space: nowrap; }
+.chart-tip strong { font-size: 11px; font-weight: 500; color: #fff; }
+.chart-tip span { display: flex; align-items: center; gap: 5px; color: #c9cddb; }
+.chart-tip em { font-style: normal; color: #949bad; }
+.chart-tip .usage-swatch { width: 6px; height: 6px; margin: 0; border-radius: 2px; }
+.chart-tip .usage-swatch.prompt { background: var(--accent); }
+.chart-tip .usage-swatch.completion { background: #a6b2ff; }
 .usage-trend .chart-xlabels { padding: 8px 0 0 38px; gap: 5px; border: 0; border-radius: 0; background: transparent; }
 .usage-trend .chart-xlabels span { flex: 1 1 0; min-width: 0; height: 14px; font-family: Consolas, monospace; font-size: 8px; white-space: nowrap; overflow: visible; }
 .usage-trend .chart-foot { padding-top: 10px; gap: 10px; font-size: 10px; color: var(--muted); line-height: 14px; }
@@ -761,7 +906,12 @@ async function saveSettings() {
 .live-head > span { color: #6b6e78; font-family: Consolas, monospace; font-size: 9px; }
 .live-dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #7c9cff; flex-shrink: 0; }
 .live-badge { border-radius: 4px; padding: 2px 7px; background: #252a3c; color: #a6b2ff; font-family: Consolas, monospace; font-size: 8px; }
-.live-card .live-feed { display: block; flex: 1; min-height: 0; max-height: none; overflow: auto; padding: 8px 14px; }
+.live-card .live-feed-wrap { flex: 1; min-height: 0; }
+.live-card :deep(.arco-scrollbar-container.live-feed) { display: block; height: 100%; max-height: none; overflow: auto; padding: 8px 14px; }
+.live-card :deep(.arco-scrollbar.arco-scrollbar-type-embed .arco-scrollbar-thumb) { opacity: 0.55; }
+.live-card :deep(.arco-scrollbar.arco-scrollbar-type-embed:hover .arco-scrollbar-thumb), .live-card :deep(.arco-scrollbar.arco-scrollbar-type-embed .arco-scrollbar-thumb-dragging) { opacity: 1; }
+.live-card :deep(.arco-scrollbar-thumb-direction-vertical .arco-scrollbar-thumb-bar) { width: 4px; margin: 0 auto; border-radius: 2px; background: #454a58; }
+.live-card :deep(.arco-scrollbar-thumb:hover .arco-scrollbar-thumb-bar), .live-card :deep(.arco-scrollbar-thumb-dragging .arco-scrollbar-thumb-bar) { background: #6b7080; }
 .live-card .feed-row { min-height: 40px; padding: 6px 0; background: transparent; border: 0; border-bottom: 1px solid #23252c; border-radius: 0; gap: 2px; }
 .live-card .feed-line1 { align-items: center; font-size: 10px; line-height: 13px; }
 .feed-model { display: flex; align-items: center; gap: 7px; min-width: 0; }
@@ -898,4 +1048,35 @@ async function saveSettings() {
   .settings-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .settings-nav button { font-size: 12px; }
 }
+/* 模型 / 请求日志 表格适配可视宽度：固定布局按比例分列，长内容折行，不出现横向溢出 */
+.models-card table, .requests-card table { table-layout: fixed; }
+.models-card :is(th, td), .requests-card :is(th, td) { overflow-wrap: anywhere; }
+.models-card :is(th, td):nth-child(1) { width: 30%; }
+.models-card :is(th, td):nth-child(2) { width: 10%; }
+.models-card :is(th, td):nth-child(3) { width: 8%; }
+.models-card :is(th, td):nth-child(4) { width: 12%; }
+.models-card :is(th, td):nth-child(5) { width: 9%; }
+.models-card :is(th, td):nth-child(6) { width: 15%; }
+.models-card :is(th, td):nth-child(7) { width: 16%; }
+.requests-card :is(th, td):nth-child(1) { width: 11%; }
+.requests-card :is(th, td):nth-child(2) { width: 9%; }
+.requests-card :is(th, td):nth-child(3) { width: 13%; }
+.requests-card :is(th, td):nth-child(4) { width: 11%; }
+.requests-card :is(th, td):nth-child(5) { width: 23%; }
+.requests-card :is(th, td):nth-child(6) { width: 8%; }
+.requests-card :is(th, td):nth-child(7) { width: 6%; }
+.requests-card :is(th, td):nth-child(8) { width: 5%; }
+.requests-card :is(th, td):nth-child(9) { width: 14%; }
+.requests-card .request-id { display: table-cell; max-width: none; white-space: nowrap; overflow-wrap: normal; }
+.requests-card .request-id-text { display: inline-block; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.requests-card .request-id .arco-btn { vertical-align: middle; }
+.models-card .schedule-chip { overflow-wrap: normal; }
+/* 模型 / 请求日志：整页收进可视高度，表格在卡片内滚动，页面本身不出滚动条 */
+.gateway-models-active, .gateway-requests-active { display: flex; flex-direction: column; height: calc(100dvh - 80px); min-height: 0; }
+.gateway-models-active > .page-heading, .gateway-requests-active > .page-heading { flex-shrink: 0; }
+.gateway-models-active > .panel-card, .gateway-requests-active > .panel-card { flex-shrink: 0; }
+.gateway-models-active > .models-card, .gateway-requests-active > .requests-card { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.models-card .table-wrap, .requests-card .table-wrap { flex: 1; min-height: 120px; }
+.models-card .ledger-foot, .requests-card .ledger-foot { flex-shrink: 0; }
+.table-wrap > :deep(.arco-scrollbar-container) { height: 100%; overflow: auto; }
 </style>

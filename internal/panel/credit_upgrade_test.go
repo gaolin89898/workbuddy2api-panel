@@ -337,13 +337,13 @@ func upgReadState(t *testing.T, path string) upgStateFile {
 }
 
 type upgDiskLedger struct {
-	Snapshot map[string]int64 `json:"snapshot"`
+	Snapshot map[string]float64 `json:"snapshot"`
 	Entries  []struct {
-		Time   string `json:"time"`
-		UID    string `json:"uid"`
-		Delta  int64  `json:"delta"`
-		Before int64  `json:"before"`
-		After  int64  `json:"after"`
+		Time   string  `json:"time"`
+		UID    string  `json:"uid"`
+		Delta  float64 `json:"delta"`
+		Before float64 `json:"before"`
+		After  int64   `json:"after"`
 	} `json:"entries"`
 }
 
@@ -558,11 +558,11 @@ func TestUpgLateAddedAccountSnapshotsIndependent(t *testing.T) {
 	if len(entries) != 3 {
 		t.Fatalf("应 3 条流水，得到 %d: %+v", len(entries), entries)
 	}
-	wantBefore := map[string]int64{"u1": 100, "u2": 200, "u3": 300}
-	wantDelta := map[string]int64{"u1": 50, "u2": 50, "u3": 30}
+	wantBefore := map[string]float64{"u1": 100, "u2": 200, "u3": 300}
+	wantDelta := map[string]float64{"u1": 50, "u2": 50, "u3": 30}
 	for _, en := range entries {
 		if wantBefore[en.UID] != en.Before || wantDelta[en.UID] != en.Delta {
-			t.Fatalf("%s 基线/增量不符: %+v（want before=%d delta=%d）",
+			t.Fatalf("%s 基线/增量不符: %+v（want before=%v delta=%v）",
 				en.UID, en, wantBefore[en.UID], wantDelta[en.UID])
 		}
 	}

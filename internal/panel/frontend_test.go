@@ -1440,8 +1440,8 @@ func TestRegionSchedulingFormRoundTrip(t *testing.T) {
    assert.equal(JSON.stringify(result.pool.account_order.domestic),'["c","a"]');
    assert.equal(JSON.stringify(result.pool.account_order.international),'[]');
    delete cfg.pool.strategy; await ctx.loadConfig();
-   assert.equal(elements.strategy_domestic.value,'weighted_random');
-   assert.equal(elements.strategy_international.value,'weighted_random');
+   assert.equal(elements.strategy_domestic.value,'single_account');
+   assert.equal(elements.strategy_international.value,'single_account');
  })().catch(e=>{console.error(e);process.exitCode=1});`
 	fp := filepath.Join(t.TempDir(), "region-form.cjs")
 	if err = os.WriteFile(fp, []byte(script), 0600); err != nil {

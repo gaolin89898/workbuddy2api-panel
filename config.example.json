@@ -1,4 +1,5 @@
 {
+  "gateway": { "supplier": "auto" },
   "listen": ":7863",
   "api_key": "test_key",
   "auth_dir": "./auths",
@@ -74,8 +75,8 @@
   },
   "pool": {
     "strategy": {
-      "domestic": "weighted_random",
-      "international": "weighted_random"
+      "domestic": "single_account",
+      "international": "single_account"
     },
     "account_order": {
       "domestic": [],

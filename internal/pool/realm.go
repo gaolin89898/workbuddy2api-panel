@@ -44,6 +44,14 @@ func (p *Pool) ServableForModelRealm(model, realm string) int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	now := time.Now()
+	if p.strategyForRealmLocked(realm) == SingleAccount {
+		e := p.singleAccountCandidateLocked(model, realm, now)
+		if e == nil || !e.healthyForModel(now, model) || p.inFlightFull(e) ||
+			p.floorBlockedForRealmModel(e, model, realm, now) {
+			return 0
+		}
+		return 1
+	}
 	n := 0
 	for _, e := range p.byUID {
 		if realm != "" && e.a.Realm() != realm {

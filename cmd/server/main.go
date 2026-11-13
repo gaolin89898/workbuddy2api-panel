@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	_ "time/tzdata" // Keep Asia/Shanghai available in standalone Windows builds.
 
 	"github.com/linguo2625469/workbuddy2api-panel/internal/livecfg"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/pool"
@@ -145,7 +146,7 @@ func warmModelRates(ctx context.Context, up *upstream.Client, p *pool.Pool) {
 }
 
 // panelListenPath 从 listen 地址提取 ":port" 形式，用于启动日志拼面板 URL
-//（":7863" 或 "0.0.0.0:7863" → ":7863"；异常输入原样返回）。
+// （":7863" 或 "0.0.0.0:7863" → ":7863"；异常输入原样返回）。
 func panelListenPath(listen string) string {
 	for i := len(listen) - 1; i >= 0; i-- {
 		if listen[i] == ':' {
@@ -231,6 +232,7 @@ func saveConfig(raw []byte, path string, live *livecfg.Holder, p *pool.Pool, up 
 	// live 为 nil（账号模式未装配网关 livecfg）时跳过快照更新。
 	if live != nil {
 		live.Store(livecfg.Snapshot{
+			GatewaySupplier:      newCfg.Gateway.Supplier,
 			APIKey:               newCfg.APIKey,
 			SoftCooldown:         newCfg.SoftRateDur,
 			SanitizeFingerprints: newCfg.Features.SanitizeBlacklistFingerprints,

@@ -162,11 +162,6 @@ function pauseAll() {
 <template>
   <section class="schedules-view">
     <header class="page-heading">
-      <div>
-        <div class="eyebrow">AUTOMATION · 定时任务</div>
-        <h1>定时任务</h1>
-        <p>签到、巡检、保活与成长任务的统一调度 · 北京时间 Asia/Shanghai</p>
-      </div>
       <div class="log-heading-actions">
         <a-button :loading="loading" @click="load"><template #icon><icon-refresh /></template>刷新</a-button>
         <a-button :disabled="!draft || !families.some(f => f.enabled && f.key)" @click="pauseConfirm = true"><template #icon><icon-pause-circle /></template>全部暂停</a-button>

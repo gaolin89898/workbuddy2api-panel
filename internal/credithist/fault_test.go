@@ -31,7 +31,7 @@ func TestFaultUnwritableTargetKeepsMemoryAndRecovers(t *testing.T) {
 		t.Fatalf("落盘失败不应影响内存账本，得到 %+v", got)
 	}
 	if l.snapshot["u1"] != 250 {
-		t.Fatalf("内存基线应为 250，得到 %d", l.snapshot["u1"])
+		t.Fatalf("内存基线应为 250，得到 %v", l.snapshot["u1"])
 	}
 	if _, err := os.Stat(path); err == nil {
 		t.Fatal("父路径是普通文件时不应写出账本文件")
@@ -51,7 +51,7 @@ func TestFaultUnwritableTargetKeepsMemoryAndRecovers(t *testing.T) {
 		t.Fatalf("恢复可写后应落盘并保留两条流水，得到 %+v", got)
 	}
 	if l2.snapshot["u1"] != 300 {
-		t.Fatalf("恢复后快照应为 300，得到 %d", l2.snapshot["u1"])
+		t.Fatalf("恢复后快照应为 300，得到 %v", l2.snapshot["u1"])
 	}
 }
 
@@ -174,7 +174,7 @@ func TestFaultMaxEntriesFallbackAndTrim(t *testing.T) {
 	if len(got) != defaultMaxEntries {
 		t.Fatalf("默认上限 %d 应截断，得到 %d", defaultMaxEntries, len(got))
 	}
-	if got[0].After != int64(defaultMaxEntries)+300 {
+	if got[0].After != float64(defaultMaxEntries)+300 {
 		t.Fatalf("截断后最新一条应保留，得到 %+v", got[0])
 	}
 
@@ -251,7 +251,7 @@ func TestFaultDeltaBoundaries(t *testing.T) {
 		t.Fatalf("超限 +%d 不应留痕，得到 %d 条", maxDelta+1, got)
 	}
 	if l.snapshot["u1"] != maxDelta+1 {
-		t.Fatalf("超限后基线应推进到 %d，得到 %d", maxDelta+1, l.snapshot["u1"])
+		t.Fatalf("超限后基线应推进到 %d，得到 %v", maxDelta+1, l.snapshot["u1"])
 	}
 	l.Observe("u1", 1) // Δ = 1-(maxDelta+1) = -maxDelta → 正常记账
 	got := l.Read(0)
@@ -266,7 +266,7 @@ func TestFaultDeltaBoundaries(t *testing.T) {
 		t.Fatalf("超限 -%d 不应留痕，得到 %d 条", maxDelta+1, got)
 	}
 	if l.snapshot["u1"] != -(maxDelta + 1) {
-		t.Fatalf("超限后基线应推进到 %d，得到 %d", -(maxDelta + 1), l.snapshot["u1"])
+		t.Fatalf("超限后基线应推进到 %d，得到 %v", -(maxDelta + 1), l.snapshot["u1"])
 	}
 	l.Observe("u1", -1) // Δ = -1-(-(maxDelta+1)) = +maxDelta
 	got = l.Read(0)
@@ -344,7 +344,7 @@ func TestFaultConcurrentMixedUIDs(t *testing.T) {
 	// 顺序写入唯一哨兵 = 「最后一次写入」，并发结束后必须生效。
 	l.Observe("shared", 777777)
 	if l.snapshot["shared"] != 777777 {
-		t.Fatalf("最后写入应成为基线，得到 %d", l.snapshot["shared"])
+		t.Fatalf("最后写入应成为基线，得到 %v", l.snapshot["shared"])
 	}
 
 	mem := l.Read(0)
@@ -373,12 +373,12 @@ func TestFaultConcurrentMixedUIDs(t *testing.T) {
 		}
 	}
 	if l2.snapshot["shared"] != 777777 {
-		t.Fatalf("重启后 shared 基线应为 777777，得到 %d", l2.snapshot["shared"])
+		t.Fatalf("重启后 shared 基线应为 777777，得到 %v", l2.snapshot["shared"])
 	}
 	for i := 0; i < accounts; i++ {
 		uid := fmt.Sprintf("acct-%d", i)
 		if l2.snapshot[uid] != rounds*10 {
-			t.Fatalf("重启后 %s 基线应为 %d，得到 %d", uid, rounds*10, l2.snapshot[uid])
+			t.Fatalf("重启后 %s 基线应为 %d，得到 %v", uid, rounds*10, l2.snapshot[uid])
 		}
 	}
 }

@@ -1210,7 +1210,7 @@ async function loadConfig() {
       const v = dig(cfgLoaded, path);
       if (el.type === 'checkbox') el.checked = !!v;
       else if (Array.isArray(v)) el.value = v.join(', ');
-      else el.value = v == null ? (name.startsWith('strategy_') ? 'weighted_random' : '') : v;
+      else el.value = v == null ? (name.startsWith('strategy_') ? 'single_account' : '') : v;
     }
     markDurationFields(); // 回填后重置校验态（清掉残留红框；现值来自后端必然合法）
     $('cfgNote').textContent = '';

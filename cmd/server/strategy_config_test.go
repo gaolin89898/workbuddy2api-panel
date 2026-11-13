@@ -13,13 +13,17 @@ import (
 )
 
 func TestRegionStrategyConfigCompatibility(t *testing.T) {
+	strict, strictErr := ParseConfig([]byte(`{"pool":{"strategy":{"domestic":"single_account","international":"single_account"}}}`))
+	if strictErr != nil || strict.Pool.Strategy.Domestic != pool.SingleAccount || strict.Pool.Strategy.International != pool.SingleAccount {
+		t.Fatalf("single-account config: %+v err=%v", strict, strictErr)
+	}
 	for _, raw := range []string{`{}`, `{"pool":{}}`, `{"pool":{"strategy":{"domestic":""}}}`} {
 		c, err := ParseConfig([]byte(raw))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if c.Pool.Strategy.Domestic != pool.WeightedRandom || c.Pool.Strategy.International != pool.WeightedRandom {
-			t.Fatalf("legacy defaults: %+v", c.Pool.Strategy)
+		if c.Pool.Strategy.Domestic != pool.SingleAccount || c.Pool.Strategy.International != pool.SingleAccount {
+			t.Fatalf("single-account defaults: %+v", c.Pool.Strategy)
 		}
 	}
 	c, err := ParseConfig([]byte(`{"pool":{"strategy":{"domestic":" ROUND_ROBIN ","international":"sequential_exhaust"},"account_order":{"international":["b","a"]}}}`))

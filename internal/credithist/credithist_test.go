@@ -43,6 +43,20 @@ func TestDecreaseIsRecorded(t *testing.T) {
 	}
 }
 
+func TestProviderBalancesKeepFractionalCreditsAndUIDsSeparate(t *testing.T) {
+	l := New("", 100)
+	l.Observe("same-uid", 100)
+	l.ObserveProvider("trae", "same-uid", 12.5)
+	l.ObserveProvider("trae", "same-uid", 10.25)
+	entries := l.Read(0)
+	if len(entries) != 1 || entries[0].Provider != "trae" || entries[0].UID != "same-uid" {
+		t.Fatalf("provider entry mismatch: %+v", entries)
+	}
+	if entries[0].Delta != -2.25 || entries[0].Before != 12.5 || entries[0].After != 10.25 {
+		t.Fatalf("fractional balance delta mismatch: %+v", entries[0])
+	}
+}
+
 // |Delta| 超过 maxDelta 视为上游脏数据：只更新基线、不留痕（对齐参考实现
 // _MAX_DELTA），且不得把基线留在旧值上导致下一轮继续误判。
 func TestDirtyDeltaOnlyUpdatesBaseline(t *testing.T) {
@@ -175,7 +189,7 @@ func TestConcurrentObserve(t *testing.T) {
 	}
 	for i := 0; i < accounts; i++ {
 		if v := l2.snapshot[fmt.Sprintf("u%d", i)]; v != 300 {
-			t.Fatalf("u%d 快照应为 300，得到 %d", i, v)
+			t.Fatalf("u%d 快照应为 300，得到 %v", i, v)
 		}
 	}
 }

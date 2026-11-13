@@ -5,7 +5,6 @@ import { IconRefresh, IconPlayArrow, IconSearch, IconGift, IconCopy, IconCheck, 
 import { accountCredits, formatNumber } from '../useAccounts';
 
 const props = defineProps({ model: Object, section: String });
-const names = { tasks: '任务中心', rewards: '活动奖励' };
 const uid = ref(''), loading = ref(false), working = ref(false), error = ref(''), result = ref('');
 const tasks = ref([]), automatic = ref([]), rewards = ref(null);
 const queue = ref({ running: false, items: [] }), scan = ref(null), concurrency = ref(1);
@@ -14,7 +13,7 @@ const loadedAt = ref(null), rulesView = ref(null);
 let version = 0, queueTimer;
 const abort = new AbortController();
 const api = (path, options = {}) => props.model.api(path, { ...options, signal: abort.signal });
-const supported = computed(() => props.model.provider === 'workbuddy');
+const supported = computed(() => props.model.provider === 'workbuddy' && props.model.platformSelection === 'workbuddy-cn');
 const personal = computed(() => supported.value ? props.model.workbuddyAccounts.filter(a => !a.disabled && !a.enterprise && a.realm !== 'global' && a.benefits_supported !== false) : []);
 const unsupportedAccounts = computed(() => supported.value ? props.model.workbuddyAccounts.filter(a => a.benefits_supported === false) : []);
 const options = personal;
@@ -73,7 +72,7 @@ async function refresh() {
   }
   await load();
 }
-watch([() => props.section, () => props.model.provider], () => {
+watch([() => props.section, () => props.model.platformSelection], () => {
   uid.value = options.value[0]?.uid || '';
   scan.value = null; filter.value = 'all'; search.value = ''; confirmation.value = null;
   load();
@@ -175,7 +174,16 @@ async function gatewayBatch(path, label) {
   finally { gatewayWorking.value = ''; }
 }
 const packages = ref(null), packagesLoading = ref(false), expandedPackage = ref('');
-const packageRows = computed(() => (packages.value?.accounts || []).filter(a => a.uid));
+const packageRows = computed(() => (packages.value?.accounts || []).filter(a => a.uid).map(account => {
+  let earliest = Infinity;
+  for (const pkg of account.packages || []) {
+    if (pkg.remain > 0 && pkg.expires_at) {
+      const timestamp = new Date(pkg.expires_at).getTime();
+      if (timestamp < earliest) earliest = timestamp;
+    }
+  }
+  return { ...account, earliestExpiry: Number.isFinite(earliest) ? expiryDate(earliest) : '--' };
+}));
 async function loadPackages() {
   if (!workbuddyReady.value) return;
   packagesLoading.value = true;
@@ -194,12 +202,7 @@ watch([() => props.section, workbuddyReady], ([section, ready]) => { if (section
 <template>
   <section :class="['benefits-view', 'benefits-' + section]">
     <header class="page-heading benefit-heading">
-      <div>
-        <div class="eyebrow">{{ section === 'tasks' ? 'OPERATIONS · WORKBUDDY' : 'REWARDS · ' + model.providerName.toUpperCase() }}</div>
-        <h1>{{ names[section] }}</h1>
-        <p>{{ section === 'tasks' ? '成长任务、活动任务与每日待办' : supported ? '官方补偿、连登奖励与活动券码' : model.provider === 'qoder' ? '每日奖励与领取状态' : '查看当前品牌的活动奖励' }}</p>
-      </div>
-      <div class="heading-actions">
+      <div class="page-toolbar"><slot name="platform-switcher" /><div class="heading-actions">
         <template v-if="section === 'tasks' && supported">
           <a-button :loading="working" :disabled="queue.running || !personal.length" @click="scanTasks"><template #icon><icon-search /></template>扫描全部待办</a-button>
           <a-button type="primary" :disabled="working || queue.running || !personal.length" @click="confirmTask(null)"><template #icon><icon-play-arrow /></template>执行全部待办</a-button>
@@ -214,7 +217,7 @@ watch([() => props.section, workbuddyReady], ([section, ready]) => { if (section
           </template>
           <a-button v-if="section === 'rewards' && workbuddyReady" type="primary" :disabled="working || loading || queue.running || !claimCount" @click="confirmation = { title: '领取全部奖励', rewards: true }"><template #icon><icon-gift /></template>全部领取</a-button>
         </template>
-      </div>
+      </div></div>
     </header>
 
     <a-alert v-if="error" type="error" class="benefit-notice">{{ error }}</a-alert>
@@ -244,7 +247,8 @@ watch([() => props.section, workbuddyReady], ([section, ready]) => { if (section
                 <a-button :loading="loading" :disabled="working" aria-label="刷新任务" title="刷新任务" @click="refresh"><template #icon><icon-refresh /></template></a-button>
               </div>
               <div class="benefit-overall-progress"><div class="inline-between"><span>总体进度</span><strong>{{ completedTasks }} / {{ tasks.length }} · {{ Math.round(taskProgress * 100) }}%</strong></div><a-progress :percent="taskProgress" :show-text="false" /></div>
-              <a-table class="benefit-task-table" :data="taskRows" row-key="task_code" :pagination="{ pageSize: 8, simple: true }" :scroll="{ x: 650 }" :bordered="false">
+              <div class="benefit-task-scroll">
+              <a-table class="benefit-task-table" :data="taskRows" row-key="task_code" :pagination="{ pageSize: 8, simple: true }" :bordered="false">
                 <template #columns>
                   <a-table-column title="任务" :width="270"><template #cell="{ record }"><div class="task-identity"><span :class="['task-symbol', record.claimed ? 'complete' : record.claimable ? 'available' : '']"><icon-check v-if="record.claimed" /><icon-gift v-else-if="record.claimable" /><icon-thunderbolt v-else /></span><div><strong>{{ record.title || record.task_code }}</strong><small class="benefit-detail">{{ record.task_desc || record.description || record.task_code }}</small><small v-if="record.target" class="benefit-detail">进度 {{ record.current }} / {{ record.target }}</small></div></div></template></a-table-column>
                   <a-table-column title="奖励" :width="95" align="right"><template #cell="{ record }"><strong class="accent-text">+{{ formatNumber(record.credit) }}</strong><small class="benefit-detail">积分<span v-if="record.energy"> · {{ record.energy }} 能量</span></small></template></a-table-column>
@@ -253,6 +257,7 @@ watch([() => props.section, workbuddyReady], ([section, ready]) => { if (section
                 </template>
                 <template #empty><a-empty :description="account ? '暂无符合条件的任务' : '暂无可用的国内版个人账号'" /></template>
               </a-table>
+              </div>
               <div class="benefit-panel-footer"><span><i class="status-dot" />{{ loadedAt ? '最近查询 ' + date(loadedAt).split(' ')[1] : '等待查询' }}</span><span>{{ account ? model.accountName(account) : '未选择账号' }}</span></div>
             </section>
 
@@ -311,7 +316,7 @@ watch([() => props.section, workbuddyReady], ([section, ready]) => { if (section
                     <td>{{ model.accountName({ uid: row.uid, nickname: row.nickname }) }}</td>
                     <td><strong class="accent-text">{{ formatNumber(row.remain) }}</strong><small v-if="row.size"> / {{ formatNumber(row.size) }}</small></td>
                     <td>{{ row.packages?.length || 0 }} 个 <a-button v-if="row.packages?.length" type="text" size="mini" @click="expandedPackage = expandedPackage === row.uid ? '' : row.uid">{{ expandedPackage === row.uid ? '收起' : '明细' }}</a-button></td>
-                    <td>{{ row.packages?.filter(p => p.remain > 0 && p.expires_at).map(p => expiryDate(p.expires_at)).sort()[0] || '--' }}</td>
+                    <td>{{ row.earliestExpiry }}</td>
                     <td><span :class="row.error ? 'danger-text' : ''">{{ row.error || '正常' }}</span></td>
                   </tr>
                   <tr v-if="expandedPackage === row.uid && row.packages?.length" class="package-detail-row">

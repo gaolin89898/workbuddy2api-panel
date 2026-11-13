@@ -13,7 +13,9 @@ export function followHostTheme(onChange) {
     ink: '--dsw-alias-label-primary',
     secondary: '--dsw-alias-label-secondary',
     muted: '--dsw-alias-label-tertiary',
-    accent: '--dsw-alias-brand-text',
+    // brand-text is a foreground token and is black in the light DSH theme;
+    // use the host's explicit blue action token for charts and accents.
+    accent: '--dsw-static-blue-600',
     'switch-on': '--dsw-static-blue-600',
     'switch-off': '--dsw-static-neutral-550',
     'accent-soft': '--dsw-alias-interactive-bg-active',

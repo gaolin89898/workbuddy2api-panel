@@ -998,6 +998,31 @@ func TestModelsEndpoint(t *testing.T) {
 	}
 }
 
+func TestAnnotateModelLabel(t *testing.T) {
+	tests := []struct {
+		name  string
+		model map[string]any
+		want  string
+	}{
+		{"vendor and multiplier", map[string]any{"id": "cn:glm-5.3", "name": "GLM-5.3", "vendor": "智谱", "credits": "x0.79 credits"}, "GLM-5.3 · 智谱 · x0.79"},
+		{"provider fallback", map[string]any{"id": "loomy/chat", "name": "Chat", "provider": "loomy"}, "Chat · Loomy"},
+		{"unknown multiplier omitted", map[string]any{"id": "cn:model", "name": "Model", "vendor": "Vendor"}, "Model · Vendor"},
+		{"no metadata", map[string]any{"id": "cn:model", "name": "Model"}, "Model"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			id := tc.model["id"]
+			annotateModelLabel(tc.model)
+			if tc.model["name"] != tc.want {
+				t.Fatalf("name = %v, want %q", tc.model["name"], tc.want)
+			}
+			if tc.model["id"] != id {
+				t.Fatalf("model id changed: %v", tc.model["id"])
+			}
+		})
+	}
+}
+
 func TestModelsDynamic(t *testing.T) {
 	// 清缓存
 	dynamicModelsCache.Lock()
@@ -1035,14 +1060,14 @@ func TestModelsDynamic(t *testing.T) {
 	for _, m := range data {
 		mm := m.(map[string]any)
 		switch mm["id"] {
-		case "dyn-model-a":
+		case "cn:dyn-model-a":
 			if mm["context_length"].(float64) != 65536 {
 				t.Errorf("dyn-model-a context_length=%v want 65536", mm["context_length"])
 			}
 			if mm["max_output_tokens"].(float64) != 8192 {
 				t.Errorf("dyn-model-a max_output_tokens=%v want 8192", mm["max_output_tokens"])
 			}
-			// reasoning 档位透出：supported_efforts + default_effort
+			// DSH compatibility aliases and reasoning_* fields both expose the tiers.
 			efforts, _ := mm["supported_efforts"].([]any)
 			if len(efforts) != 3 || efforts[0] != "low" {
 				t.Errorf("dyn-model-a supported_efforts=%v", mm["supported_efforts"])
@@ -1050,7 +1075,13 @@ func TestModelsDynamic(t *testing.T) {
 			if mm["default_effort"] != "medium" {
 				t.Errorf("dyn-model-a default_effort=%v want medium", mm["default_effort"])
 			}
-		case "dyn-model-b":
+			if got, _ := mm["reasoning_supported_efforts"].([]any); len(got) != 3 {
+				t.Errorf("dyn-model-a reasoning_supported_efforts=%v", mm["reasoning_supported_efforts"])
+			}
+			if mm["reasoning_default_effort"] != "medium" || mm["supports_reasoning"] != true {
+				t.Errorf("dyn-model-a reasoning metadata incomplete: %+v", mm)
+			}
+		case "cn:dyn-model-b":
 			// 上游未返回 reasoning → 两个档位字段都省略（客户端按自身默认）
 			if _, has := mm["supported_efforts"]; has {
 				t.Errorf("dyn-model-b supported_efforts should be omitted, got %v", mm["supported_efforts"])
@@ -1058,7 +1089,7 @@ func TestModelsDynamic(t *testing.T) {
 			if _, has := mm["default_effort"]; has {
 				t.Errorf("dyn-model-b default_effort should be omitted")
 			}
-		case "glm-9.9":
+		case "cn:glm-9.9":
 			if mm["context_length"].(float64) != 262144 {
 				t.Errorf("glm-9.9 context_length=%v want 262144", mm["context_length"])
 			}

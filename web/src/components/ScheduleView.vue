@@ -20,17 +20,26 @@ function save() {
   props.model.saveSchedule({ checkin_enabled, checkin_hours: [...checkin_hours], refresh_after_checkin, catchup_on_start }).catch(() => {});
 }
 const recentRun = computed(() => [...props.model.allLogs].reverse().find(e => /checkin /i.test(e.text)));
+const checkinsByDate = computed(() => {
+  const counts = new Map();
+  for (const entry of props.model.allLogs) {
+    if (!/checkin /i.test(entry.text) || !/签到成功|今天已签到|幂等/.test(entry.text)) continue;
+    const date = chinaDate(entry.ts);
+    counts.set(date, (counts.get(date) || 0) + 1);
+  }
+  return counts;
+});
 const history = computed(() => Array.from({ length: 7 }, (_, index) => {
   const date = chinaDate(props.model.now - (6 - index) * 86400000);
-  const dayLogs = props.model.allLogs.filter(e => chinaDate(e.ts) === date && /checkin /i.test(e.text) && /签到成功|今天已签到|幂等/.test(e.text));
+  const count = checkinsByDate.value.get(date) || 0;
   const today = index === 6;
-  return { date, today, weekday: today ? '今天' : new Date(date + 'T00:00:00+08:00').toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', weekday: 'short' }), label: date.slice(5).replace('-', '/'), count: today ? `${props.model.allSigned.length} / ${props.model.allEligible.length}` : dayLogs.length ? `${dayLogs.length} 次` : '--', kind: today && props.model.allPending.length ? 'warning' : dayLogs.length || today && props.model.allSigned.length ? 'success' : 'muted' };
+  return { date, today, weekday: today ? '今天' : new Date(date + 'T00:00:00+08:00').toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', weekday: 'short' }), label: date.slice(5).replace('-', '/'), count: today ? `${props.model.allSigned.length} / ${props.model.allEligible.length}` : count ? `${count} 次` : '--', kind: today && props.model.allPending.length ? 'warning' : count || today && props.model.allSigned.length ? 'success' : 'muted' };
 }));
 </script>
 
 <template>
   <section class="schedule-view">
-    <header class="page-heading"><div><div class="eyebrow">AUTOMATION · 签到设置</div><h1>签到设置</h1><p>WorkBuddy、Trae 与 MiniMax 共用以下时刻，Qoder 单独按 10:00 轮次处理，服务需保持在线。</p></div><div class="heading-actions"><a-button v-if="embedded" @click="emit('key')">管理密钥</a-button><a-button class="desktop-text" :disabled="!model.pending.length" :loading="model.busy.has('checkin-all')" @click="model.checkinAll().catch(() => {})"><template #icon><icon-check /></template>全部签到</a-button></div></header>
+    <header class="page-heading"><div class="heading-actions"><a-button v-if="embedded" @click="emit('key')">管理密钥</a-button><a-button class="desktop-text" :disabled="!model.pending.length" :loading="model.busy.has('checkin-all')" @click="model.checkinAll().catch(() => {})"><template #icon><icon-check /></template>全部签到</a-button></div></header>
     <div class="settings-grid">
       <form class="schedule-form" @submit.prevent="save">
         <div class="form-top inline-between"><div><h2>每日自动签到</h2><p>在设定时刻自动为可签到账号运行。</p></div><a-switch v-model="draft.checkin_enabled" checked-text="开" unchecked-text="关" aria-label="每日自动签到" /></div>

@@ -27,9 +27,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/linguo2625469/workbuddy2api-panel/internal/antigravity"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/auth"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/credithist"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/desktop"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/doubao"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/gateway"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/httpauth"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/livecfg"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/loomy"
@@ -45,6 +48,7 @@ import (
 
 // Config 面板依赖（main 装配注入）。
 type Config struct {
+	Providers *gateway.Router
 	// AccountsOnly 仅账号管理模式：UI 限制为账号管理 + 签到，网关能力路由
 	// （模型/用量/请求日志/补偿等）不注册，/panel/api/config 保持签到设置形态。
 	AccountsOnly bool
@@ -52,6 +56,8 @@ type Config struct {
 	Qoder        *qoder.Store
 	Minimax      *minimax.Store
 	Loomy        *loomy.Store
+	Antigravity  *antigravity.Store
+	Doubao       *doubao.Store
 	Pool         *pool.Pool
 	Upstream     *upstream.Client
 	Scheduler    *scheduler.Scheduler // 手动触发签到/保活；nil 时对应接口返回 501
@@ -210,6 +216,8 @@ func (p *Panel) routes() {
 	p.qoderRoutes()
 	p.minimaxRoutes()
 	p.loomyRoutes()
+	p.antigravityRoutes()
+	p.doubaoRoutes()
 	p.desktopRoutes()
 	p.benefitRoutes()
 	p.vueRoutes()
@@ -415,22 +423,25 @@ func (p *Panel) overview(w http.ResponseWriter, r *http.Request) {
 		sticky = p.cfg.StickyCount()
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"version":          p.cfg.Version,
-		"uptime_sec":       int(time.Since(p.started).Seconds()),
-		"auth_required":    p.apiKey() != "",
-		"redis_mode":       p.cfg.RedisMode,
-		"sticky_sessions":  sticky,
-		"total":            total,
-		"healthy":          healthy,
-		"cooling":          cooling,
-		"disabled":         disabled,
-		"paused":           paused,
-		"in_flight_full":   inFlightFull,
-		"accounts":         p.benefitAccountStatuses(),
-		"trae_accounts":    p.traeAccounts(),
-		"qoder_accounts":   p.qoderAccounts(),
-		"minimax_accounts": p.minimaxAccounts(),
-		"loomy_accounts":   p.loomyAccounts(),
+		"version":              p.cfg.Version,
+		"uptime_sec":           int(time.Since(p.started).Seconds()),
+		"auth_required":        p.apiKey() != "",
+		"redis_mode":           p.cfg.RedisMode,
+		"sticky_sessions":      sticky,
+		"total":                total,
+		"healthy":              healthy,
+		"cooling":              cooling,
+		"disabled":             disabled,
+		"paused":               paused,
+		"in_flight_full":       inFlightFull,
+		"accounts":             p.benefitAccountStatuses(),
+		"trae_accounts":        p.traeAccounts(),
+		"qoder_accounts":       p.qoderAccounts(),
+		"minimax_accounts":     p.minimaxAccounts(),
+		"loomy_accounts":       p.loomyAccounts(),
+		"antigravity_accounts": p.antigravityAccounts(),
+		"doubao_accounts":      p.doubaoAccounts(),
+		"provider_totals":      p.cfg.Providers.Availability(),
 		// model_locks 模型级限流全清单（哪些模型不能用、锁了几个号、还要锁多久）：
 		// 与 accounts 的账号池视图互补，前端「模型锁池」表直接渲染。无锁时为 null。
 		"model_locks": p.cfg.Pool.ModelLockView(),
@@ -530,11 +541,12 @@ func (p *Panel) creditHistory(w http.ResponseWriter, r *http.Request) {
 		limit = 1000
 	}
 	uid := r.URL.Query().Get("uid")
+	provider := strings.TrimSpace(r.URL.Query().Get("provider"))
 	nicks := p.nicknames()
 	// 有 uid 过滤时必须先全量取回（账本上限默认 2000 条）：先截断再过滤会让
 	// 筛选后的条数看起来像历史缺失。无过滤时只取 limit 条，不为一次展示拷贝整个账本。
 	readLimit := limit
-	if uid != "" {
+	if uid != "" || provider != "" {
 		readLimit = 0
 	}
 	all := p.cfg.CreditHistory.Read(readLimit)
@@ -543,13 +555,64 @@ func (p *Panel) creditHistory(w http.ResponseWriter, r *http.Request) {
 		if uid != "" && e.UID != uid {
 			continue
 		}
+		entryProvider := e.Provider
+		if entryProvider == "" {
+			entryProvider = "workbuddy"
+		}
+		if provider != "" && entryProvider != provider {
+			continue
+		}
+		account := nicks[e.UID]
+		switch entryProvider {
+		case "trae":
+			if p.cfg.Trae == nil {
+				break
+			}
+			for _, a := range p.cfg.Trae.List() {
+				if a.UID == e.UID {
+					account = a.Nickname
+					break
+				}
+			}
+		case "qoder":
+			if p.cfg.Qoder == nil {
+				break
+			}
+			for _, a := range p.cfg.Qoder.List() {
+				if a.UID == e.UID {
+					account = a.Nickname
+					break
+				}
+			}
+		case "minimax":
+			if p.cfg.Minimax == nil {
+				break
+			}
+			for _, a := range p.cfg.Minimax.List() {
+				if a.UID == e.UID {
+					account = a.Nickname
+					break
+				}
+			}
+		case "loomy":
+			if p.cfg.Loomy == nil {
+				break
+			}
+			for _, a := range p.cfg.Loomy.List() {
+				if a.UID == e.UID {
+					account = a.Nickname
+					break
+				}
+			}
+		}
 		out = append(out, map[string]any{
-			"time":    e.Time,
-			"uid":     e.UID,
-			"account": nicks[e.UID],
-			"delta":   e.Delta,
-			"before":  e.Before,
-			"after":   e.After,
+			"time":     e.Time,
+			"provider": entryProvider,
+			"uid":      e.UID,
+			"account":  account,
+			"delta":    e.Delta,
+			"before":   e.Before,
+			"after":    e.After,
 		})
 		if len(out) >= limit {
 			break
@@ -561,12 +624,20 @@ func (p *Panel) creditHistory(w http.ResponseWriter, r *http.Request) {
 // nicknames 池内 uid → 昵称映射（仅展示用，不含任何凭证）。
 func (p *Panel) nicknames() map[string]string {
 	nicks := map[string]string{}
-	if p.cfg.Pool == nil {
-		return nicks
+	if p.cfg.Pool != nil {
+		for _, s := range p.cfg.Pool.List() {
+			if s.Nickname != "" {
+				nicks[s.UID] = s.Nickname
+			}
+		}
 	}
-	for _, s := range p.cfg.Pool.List() {
-		if s.Nickname != "" {
-			nicks[s.UID] = s.Nickname
+	if p.cfg.Providers != nil {
+		for _, source := range p.cfg.Providers.Sources {
+			for _, a := range source.GatewayAccounts() {
+				if a.Nickname != "" {
+					nicks[a.ID] = a.Nickname
+				}
+			}
 		}
 	}
 	return nicks
@@ -579,12 +650,13 @@ func (p *Panel) nicknames() map[string]string {
 // 各域独立探测、独立容错：某域无可用账号则整域跳过；两域全空时才报错
 // （有错误明细回 502，一个账号都没有回 503）。
 func (p *Panel) models(w http.ResponseWriter, r *http.Request) {
+	supplier := p.cfg.Live.Load().GatewaySupplier
 	out := make([]map[string]any, 0)
 	var fetchErrs []string
 
 	// CN 域：有可用 CN 账号才查（此前无条件 Pool.Pick()+FetchModels——选中 global
 	// 账号时打 CN 端点必然失败，混合池表现为偶发 502，纯 global 池必炸）。
-	if uids := p.cfg.Pool.AvailableUIDsForRealm("cn"); len(uids) > 0 {
+	if uids := p.cfg.Pool.AvailableUIDsForRealm("cn"); gateway.SupplierAllowsModel(supplier, "cn:") && len(uids) > 0 {
 		if acct := p.cfg.Pool.AuthByUID(uids[0]); acct != nil {
 			infos, err := p.cfg.Upstream.FetchModels(acct)
 			if err != nil {
@@ -599,7 +671,7 @@ func (p *Panel) models(w http.ResponseWriter, r *http.Request) {
 
 	// global 域：路由开关开且有可用 global 账号才查（独立目录端点，FetchGlobalModelInfos；
 	// Upstream.GlobalEnabled 是探测侧同一道闸，与 main 装配的 config global.enabled 一致）。
-	if p.cfg.Upstream.GlobalEnabled {
+	if p.cfg.Upstream.GlobalEnabled && gateway.SupplierAllowsModel(supplier, "global:") {
 		if uids := p.cfg.Pool.AvailableUIDsForRealm("global"); len(uids) > 0 {
 			if acct := p.cfg.Pool.AuthByUID(uids[0]); acct != nil {
 				infos := p.cfg.Upstream.FetchGlobalModelInfos(acct)
@@ -615,6 +687,9 @@ func (p *Panel) models(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if p.cfg.Providers != nil {
+		out = append(out, p.cfg.Providers.ModelsForSupplier(r.Context(), supplier)...)
+	}
 	if len(out) == 0 {
 		if len(fetchErrs) > 0 {
 			writeErr(w, http.StatusBadGateway, "fetch models: "+strings.Join(fetchErrs, "; "))

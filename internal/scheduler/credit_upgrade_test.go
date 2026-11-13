@@ -169,7 +169,7 @@ func TestUpgConcurrentFullRefreshLedgerConsistent(t *testing.T) {
 		t.Fatalf("重启读盘条数 %d != 内存 %d", len(disk), len(entries))
 	}
 	key := func(e credithist.Entry) string {
-		return fmt.Sprintf("%s|%d|%d|%d", e.UID, e.Delta, e.Before, e.After)
+		return fmt.Sprintf("%s|%g|%g|%g", e.UID, e.Delta, e.Before, e.After)
 	}
 	diskSet := map[string]int{}
 	for _, e := range disk {

@@ -1,5 +1,4 @@
 .benefits-view { min-width: 0; }
-.benefit-heading { min-height: 84px; }
 .benefit-heading .heading-actions { flex-wrap: wrap; justify-content: flex-end; }
 .benefit-content { display: block; width: 100%; min-height: 220px; }
 .benefit-notice { margin: 0 0 20px; overflow-wrap: anywhere; }
@@ -7,6 +6,10 @@
 .benefit-layout { display: grid; grid-template-columns: minmax(0, 2.05fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
 .benefit-primary, .benefit-side-section, .benefit-packages { min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
 .benefit-primary { display: flex; flex-direction: column; min-height: 600px; }
+.benefits-tasks .benefit-primary { min-height: 0; height: max(320px, calc(100dvh - 240px)); }
+.benefits-tasks .benefit-primary > :not(.benefit-task-scroll) { flex-shrink: 0; }
+.benefits-tasks .benefit-task-scroll { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.benefit-task-table .arco-table-th { position: sticky; top: 0; z-index: 1; }
 .benefit-panel-heading { min-height: 58px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
 .benefit-panel-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .benefit-panel-title > span, .benefit-caption { color: var(--muted); font-size: 10px; }
@@ -18,6 +21,7 @@
 .benefit-toolbar > .arco-select { width: 200px; max-width: 100%; }
 .benefit-toolbar > .arco-input-wrapper { flex: 1; min-width: 110px; }
 .benefit-toolbar > .arco-btn { width: 36px; flex-shrink: 0; padding: 0; }
+.benefit-toolbar > .arco-btn.csv-export { width: auto; min-width: 84px; padding: 0 14px; }
 .benefit-toolbar-hint { margin-left: auto; color: var(--muted); font-size: 10px; overflow-wrap: anywhere; }
 .benefit-overall-progress { padding: 0 20px 14px; }
 .benefit-overall-progress .inline-between { font-size: 10px; color: var(--muted); margin-bottom: 7px; }
@@ -113,6 +117,18 @@
 .reward-rules > p { display: flex; gap: 8px; align-items: start; color: var(--muted); font-size: 11px; margin-top: 14px; }
 .reward-rules > p .arco-icon { margin-top: 4px; flex-shrink: 0; }
 .reward-rules > a { display: inline-block; font-size: 10px; color: var(--accent); margin-top: 18px; }
+@media (min-width: 1151px) {
+  main.tasks-workspace { height: 100%; display: flex; flex-direction: column; padding-bottom: 24px; }
+  .tasks-workspace > :not(.benefits-tasks) { flex-shrink: 0; }
+  .benefits-tasks { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .benefits-tasks > :not(.benefit-content) { flex-shrink: 0; }
+  .benefits-tasks .benefit-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .benefits-tasks .benefit-stats { flex-shrink: 0; }
+  .benefits-tasks .benefit-layout { flex: 1; min-height: 0; align-items: stretch; }
+  .benefits-tasks .benefit-primary { height: auto; min-height: 0; }
+  .benefits-tasks .benefit-aside { min-height: 0; overflow: auto; overscroll-behavior: contain; }
+  .benefits-tasks .benefit-side-section { flex-shrink: 0; }
+}
 @media (max-width: 1150px) {
   .benefit-layout { grid-template-columns: minmax(0, 1fr); }
   .benefit-aside { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }

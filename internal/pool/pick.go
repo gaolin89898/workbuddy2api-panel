@@ -46,6 +46,12 @@ func (p *Pool) pick(tried map[string]bool, reqModel, realm string) *auth.Auth {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := time.Now()
+	if realm == "" && p.strategyForRealmLocked("cn") == SingleAccount {
+		realm = "cn"
+	}
+	if p.strategyForRealmLocked(realm) == SingleAccount {
+		return p.pickSingleAccountLocked(tried, reqModel, realm, now)
+	}
 	realmOK := func(e *entry) bool { return realm == "" || e.a.Realm() == realm }
 	healthyOf := func(e *entry) bool { return realmOK(e) && e.healthy(now) }
 	if reqModel != "" {

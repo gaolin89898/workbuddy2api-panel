@@ -30,12 +30,13 @@ func creditGet(t *testing.T, p *Panel, query string) (int, string) {
 
 type creditResp struct {
 	Entries []struct {
-		Time    string `json:"time"`
-		UID     string `json:"uid"`
-		Account string `json:"account"`
-		Delta   int64  `json:"delta"`
-		Before  int64  `json:"before"`
-		After   int64  `json:"after"`
+		Time     string  `json:"time"`
+		UID      string  `json:"uid"`
+		Account  string  `json:"account"`
+		Provider string  `json:"provider"`
+		Delta    float64 `json:"delta"`
+		Before   float64 `json:"before"`
+		After    float64 `json:"after"`
 	} `json:"entries"`
 	Limit int `json:"limit"`
 }
@@ -130,6 +131,25 @@ func TestCreditHistoryUIDFilter(t *testing.T) {
 	}
 	if len(out.Entries) != 1 || out.Entries[0].UID != "u1" || out.Entries[0].Delta != 10 {
 		t.Fatalf("uid 过滤结果不符: %+v", out.Entries)
+	}
+}
+
+func TestCreditHistoryProviderFilter(t *testing.T) {
+	l := credithist.New("", 100)
+	l.Observe("same-uid", 100)
+	l.Observe("same-uid", 110)
+	l.ObserveProvider("trae", "same-uid", 40)
+	l.ObserveProvider("trae", "same-uid", 35)
+	code, body := creditGet(t, creditPanel(t, l), "?provider=trae&limit=1")
+	if code != 200 {
+		t.Fatalf("-> %d %s", code, body)
+	}
+	var out creditResp
+	if err := json.Unmarshal([]byte(body), &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Entries) != 1 || out.Entries[0].Provider != "trae" || out.Entries[0].Delta != -5 {
+		t.Fatalf("provider filter result mismatch: %+v", out.Entries)
 	}
 }
 

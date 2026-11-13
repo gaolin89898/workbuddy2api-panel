@@ -33,11 +33,12 @@ const defaultMaxEntries = 2000
 // Entry 一条积分变动流水。Before/After 是变动前后余额，Delta = After - Before
 // （正 = 获取，负 = 消耗）。
 type Entry struct {
-	Time   time.Time `json:"time"`
-	UID    string    `json:"uid"`
-	Delta  int64     `json:"delta"`
-	Before int64     `json:"before"`
-	After  int64     `json:"after"`
+	Time     time.Time `json:"time"`
+	Provider string    `json:"provider,omitempty"`
+	UID      string    `json:"uid"`
+	Delta    float64   `json:"delta"`
+	Before   float64   `json:"before"`
+	After    float64   `json:"after"`
 }
 
 // fileVersion 落盘格式版本（与 usage.json 同风格，便于将来迁移）。
@@ -46,10 +47,10 @@ const fileVersion = 1
 // diskFile 落盘结构：余额快照（uid → 最近余额）与流水同文件——重启后基线不丢，
 // 不会把"上次进程结束时的余额"当成新增。
 type diskFile struct {
-	Version  int              `json:"version"`
-	Saved    string           `json:"saved,omitempty"`
-	Snapshot map[string]int64 `json:"snapshot"`
-	Entries  []Entry          `json:"entries"`
+	Version  int                `json:"version"`
+	Saved    string             `json:"saved,omitempty"`
+	Snapshot map[string]float64 `json:"snapshot"`
+	Entries  []Entry            `json:"entries"`
 }
 
 // Ledger 并发安全的积分账本。path 为空 = 纯内存（不落盘）。
@@ -57,7 +58,7 @@ type Ledger struct {
 	mu       sync.Mutex
 	path     string
 	max      int
-	snapshot map[string]int64
+	snapshot map[string]float64
 	entries  []Entry // 时间升序
 }
 
@@ -67,7 +68,7 @@ func New(path string, maxEntries int) *Ledger {
 	if maxEntries <= 0 {
 		maxEntries = defaultMaxEntries
 	}
-	l := &Ledger{path: path, max: maxEntries, snapshot: map[string]int64{}}
+	l := &Ledger{path: path, max: maxEntries, snapshot: map[string]float64{}}
 	l.load()
 	return l
 }
@@ -110,26 +111,42 @@ func (l *Ledger) load() {
 //
 // 同步落盘：留痕频率是"每次余额刷新"级（分钟级），文件很小，无需防抖队列。
 func (l *Ledger) Observe(uid string, credits int64) {
+	l.ObserveProvider("workbuddy", uid, float64(credits))
+}
+
+// ObserveProvider observes a platform balance. Non-WorkBuddy IDs share the same
+// UID namespace in storage without colliding with legacy WorkBuddy snapshots.
+func (l *Ledger) ObserveProvider(provider, uid string, credits float64) {
 	// 纯空白 uid 与空 uid 一样无效：放进去只会留下一个面板永远筛不到的幽灵基线
 	// （uid 过滤参数为空 = 不过滤，所以这种条目既无用也删不掉）。
-	if l == nil || strings.TrimSpace(uid) == "" {
+	provider = strings.TrimSpace(provider)
+	uid = strings.TrimSpace(uid)
+	if l == nil || uid == "" {
 		return
 	}
+	if provider == "" {
+		provider = "workbuddy"
+	}
+	key := uid
+	if provider != "workbuddy" {
+		key = provider + "\x00" + uid
+	}
 	l.mu.Lock()
-	prev, seen := l.snapshot[uid]
+	prev, seen := l.snapshot[key]
 	if seen && prev == credits {
 		l.mu.Unlock()
 		return
 	}
-	l.snapshot[uid] = credits
+	l.snapshot[key] = credits
 	if seen {
 		if delta := credits - prev; delta >= -maxDelta && delta <= maxDelta {
 			l.entries = append(l.entries, Entry{
-				Time:   time.Now(),
-				UID:    uid,
-				Delta:  delta,
-				Before: prev,
-				After:  credits,
+				Time:     time.Now(),
+				Provider: provider,
+				UID:      uid,
+				Delta:    delta,
+				Before:   prev,
+				After:    credits,
 			})
 			if len(l.entries) > l.max {
 				// 丢最旧：copy 到新底层数组，避免 append 复用旧数组导致内存不释放。

@@ -1,4 +1,4 @@
-﻿// runtime.go 统一运行时装配（统一后台重构第一阶段）：
+// runtime.go 统一运行时装配（统一后台重构第一阶段）：
 // 一个服务进程、一份 WorkBuddy 账号池、一套账号状态和签到调度。
 //
 // 账号管理与网关共用同一份装配：
@@ -24,8 +24,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/linguo2625469/workbuddy2api-panel/internal/antigravity"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/auth"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/credithist"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/doubao"
+	"github.com/linguo2625469/workbuddy2api-panel/internal/gateway"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/livecfg"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/loomy"
 	"github.com/linguo2625469/workbuddy2api-panel/internal/minimax"
@@ -48,16 +51,19 @@ type appRuntime struct {
 	configPath string
 	gateway    bool
 
-	p          *pool.Pool
-	up         *upstream.Client
-	creditHist *credithist.Ledger
-	trae       *trae.Store
-	qoder      *qoder.Store
-	minimax    *minimax.Store
-	loomy      *loomy.Store
-	settings   *accountSettings
-	sch        *scheduler.Scheduler
-	pn         *panel.Panel
+	p           *pool.Pool
+	up          *upstream.Client
+	creditHist  *credithist.Ledger
+	trae        *trae.Store
+	qoder       *qoder.Store
+	minimax     *minimax.Store
+	loomy       *loomy.Store
+	antigravity *antigravity.Store
+	doubao      *doubao.Store
+	providers   *gateway.Router
+	settings    *accountSettings
+	sch         *scheduler.Scheduler
+	pn          *panel.Panel
 
 	// 网关可选模块（gateway=false 时全部为 nil，不初始化、不占资源）。
 	store      redisstore.Store
@@ -176,6 +182,15 @@ func newAppRuntime(configPath string, cfg *Config, gateway bool) (*appRuntime, e
 		return nil, err
 	}
 	applySideRefresh(rt)
+	if rt.antigravity, err = antigravity.Open(stateSibling(cfg.StateFile, "antigravity-accounts.json"), nil); err != nil {
+		return nil, err
+	}
+	if rt.doubao, err = doubao.Open(stateSibling(cfg.StateFile, "doubao-accounts.json"), nil); err != nil {
+		return nil, err
+	}
+	if gateway {
+		rt.initProviders()
+	}
 
 	// 签到入口（自动排程 / 启动补签 / 面板手动触发共用）：
 	// WorkBuddy 池签到由 scheduler 负责，旁路平台经 CheckinHook 同批执行。
@@ -190,24 +205,24 @@ func newAppRuntime(configPath string, cfg *Config, gateway bool) (*appRuntime, e
 	// 夜猫子/成长/连登）仅网关模式按 config 生效——账号模式恒关，且迁移已把
 	// 该状态物化进 config.json，开启网关不会隐式新增。
 	rt.sch = scheduler.New(scheduler.Config{
-		Pool:     rt.p,
-		Upstream: rt.up,
-		CheckinHook:       runSideCheckin,
-		CheckinHours:      rt.settings.schedule.Hours,
-		CheckinDisabled:   !rt.settings.schedule.Enabled,
-		CheckinOnly:       !gateway,
-		StreakDisabled:    !gateway || !cfg.Schedule.StreakEnabled,
-		ExpiringSoonWindow: cfg.ExpiringSoonDur,
-		TravelHours:       cfg.Schedule.TravelHours,
-		TravelDisabled:    !gateway || !cfg.Schedule.TravelEnabled,
-		ActivityHours:     cfg.Schedule.ActivityHours,
-		ActivityDisabled:  !gateway || !cfg.Schedule.ActivityEnabled,
-		KeepaliveHours:    cfg.Schedule.KeepaliveHours,
-		KeepaliveDisabled: !gateway || !cfg.Schedule.KeepaliveEnabled,
-		BlackcatHours:     cfg.Schedule.BlackcatHours,
-		BlackcatDisabled:  !gateway || !cfg.Schedule.BlackcatEnabled,
-		GrowthHours:       cfg.Schedule.GrowthHours,
-		GrowthDisabled:    !gateway || !cfg.Schedule.GrowthEnabled,
+		Pool:                   rt.p,
+		Upstream:               rt.up,
+		CheckinHook:            runSideCheckin,
+		CheckinHours:           rt.settings.schedule.Hours,
+		CheckinDisabled:        !rt.settings.schedule.Enabled,
+		CheckinOnly:            !gateway,
+		StreakDisabled:         !gateway || !cfg.Schedule.StreakEnabled,
+		ExpiringSoonWindow:     cfg.ExpiringSoonDur,
+		TravelHours:            cfg.Schedule.TravelHours,
+		TravelDisabled:         !gateway || !cfg.Schedule.TravelEnabled,
+		ActivityHours:          cfg.Schedule.ActivityHours,
+		ActivityDisabled:       !gateway || !cfg.Schedule.ActivityEnabled,
+		KeepaliveHours:         cfg.Schedule.KeepaliveHours,
+		KeepaliveDisabled:      !gateway || !cfg.Schedule.KeepaliveEnabled,
+		BlackcatHours:          cfg.Schedule.BlackcatHours,
+		BlackcatDisabled:       !gateway || !cfg.Schedule.BlackcatEnabled,
+		GrowthHours:            cfg.Schedule.GrowthHours,
+		GrowthDisabled:         !gateway || !cfg.Schedule.GrowthEnabled,
 		IncludeDisabledInTasks: cfg.Schedule.IncludeDisabledInTasks,
 	})
 	rt.sch.SetCheckinRefreshEnabled(rt.settings.schedule.RefreshAfterCheckin)
@@ -216,6 +231,7 @@ func newAppRuntime(configPath string, cfg *Config, gateway bool) (*appRuntime, e
 	// 网关可选模块：livecfg / 会话粘性 / 用量 / 请求指标。
 	if gateway {
 		rt.live = livecfg.New(livecfg.Snapshot{
+			GatewaySupplier:      cfg.Gateway.Supplier,
 			APIKey:               cfg.APIKey,
 			SoftCooldown:         cfg.SoftRateDur,
 			SanitizeFingerprints: cfg.Features.SanitizeBlacklistFingerprints,
@@ -260,25 +276,28 @@ func newAppRuntime(configPath string, cfg *Config, gateway bool) (*appRuntime, e
 
 	// 管理面板：统一路由。网关模式额外透出用量/请求指标/粘性会话等观测。
 	rt.pn = panel.New(panel.Config{
-		AccountsOnly: !gateway,
-		Pool:         rt.p,
-		Upstream:     rt.up,
-		Scheduler:    rt.sch,
-		Trae:         rt.trae,
-		Qoder:        rt.qoder,
-		Minimax:      rt.minimax,
-		Loomy:        rt.loomy,
+		Providers:     rt.providers,
+		AccountsOnly:  !gateway,
+		Pool:          rt.p,
+		Upstream:      rt.up,
+		Scheduler:     rt.sch,
+		Trae:          rt.trae,
+		Qoder:         rt.qoder,
+		Minimax:       rt.minimax,
+		Loomy:         rt.loomy,
+		Antigravity:   rt.antigravity,
+		Doubao:        rt.doubao,
 		CreditHistory: rt.creditHist,
-		AuthDir:      cfg.AuthDir,
-		APIKey:       cfg.APIKey,
-		PanelUser:    cfg.PanelUser,
-		PanelPass:    cfg.PanelPass,
-		RedisMode:    rt.redisMode,
-		StickyCount:  rt.sessCount,
-		Version:      appVersion,
-		Live:         rt.live,
-		Usage:        rt.usageRec,
-		RequestLog:   rt.requestLog,
+		AuthDir:       cfg.AuthDir,
+		APIKey:        cfg.APIKey,
+		PanelUser:     cfg.PanelUser,
+		PanelPass:     cfg.PanelPass,
+		RedisMode:     rt.redisMode,
+		StickyCount:   rt.sessCount,
+		Version:       appVersion,
+		Live:          rt.live,
+		Usage:         rt.usageRec,
+		RequestLog:    rt.requestLog,
 		// 模型上限探测数据（与 state 文件同目录，缺省 data/output_probes.json）。
 		ProbeFile:  stateSibling(cfg.StateFile, "output_probes.json"),
 		ConfigPath: configPath,
@@ -298,6 +317,11 @@ func newAppRuntime(configPath string, cfg *Config, gateway bool) (*appRuntime, e
 			changes, err := saveConfig(raw, configPath, rt.live, rt.p, rt.up, rt.sch)
 			if err != nil {
 				return nil, err
+			}
+			if rt.providers != nil {
+				if current, loadErr := Load(configPath); loadErr == nil {
+					rt.providers.Configure(current.Pool.MaxInFlight, current.SoftRateDur)
+				}
 			}
 			// 签到设置不受网关配置保存影响：config.json 里的 checkin_* 是同步副本，
 			// 权威在 account-settings.json，保存后立即恢复其排程状态。
@@ -409,23 +433,24 @@ func logSchedulerStatus(rt *appRuntime) {
 func (rt *appRuntime) handler() http.Handler {
 	if rt.gateway {
 		return server.NewHandler(server.Config{
-			Pool:         rt.p,
-			Upstream:     rt.up,
-			APIKey:       rt.cfg.APIKey,
-			Session:      rt.sess,
-			StickyCount:  rt.sessCount,
-			RedisMode:    rt.redisMode,
-			Instance:     instanceFingerprint(rt.configPath, rt.cfg),
-			SoftCooldown: rt.cfg.SoftRateDur,
-			Panel:        rt.pn,
-			Live:         rt.live,
-			Usage:        rt.usageRec,
-			RequestLog:   rt.requestLog,
-			PromptMode:   rt.cfg.Prompt.Mode,
-			PromptText:   rt.cfg.PromptText,
+			Providers:        rt.providers,
+			Pool:             rt.p,
+			Upstream:         rt.up,
+			APIKey:           rt.cfg.APIKey,
+			Session:          rt.sess,
+			StickyCount:      rt.sessCount,
+			RedisMode:        rt.redisMode,
+			Instance:         instanceFingerprint(rt.configPath, rt.cfg),
+			SoftCooldown:     rt.cfg.SoftRateDur,
+			Panel:            rt.pn,
+			Live:             rt.live,
+			Usage:            rt.usageRec,
+			RequestLog:       rt.requestLog,
+			PromptMode:       rt.cfg.Prompt.Mode,
+			PromptText:       rt.cfg.PromptText,
 			RecordClientInfo: rt.cfg.Logging.RequestClientInfo,
-			GlobalEnabled: rt.cfg.Global.Enabled,
-			ModelsHidden:  rt.cfg.Models.Hidden,
+			GlobalEnabled:    rt.cfg.Global.Enabled,
+			ModelsHidden:     rt.cfg.Models.Hidden,
 		})
 	}
 	return accountHandler(rt.pn, rt.healthPayload)
@@ -503,6 +528,7 @@ func startUnifiedWithListener(parent context.Context, configPath string, cfg *Co
 	ctx, stop := signal.NotifyContext(parent, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go rt.sch.Run(ctx)
+	go rt.observeSideProviderCredits(ctx)
 	if gateway {
 		rt.sch.StartBalanceRefresh(ctx, cfg.BalanceRefreshInterval)
 		rt.sch.StartTaskSweep(ctx, cfg.TaskSweepInterval)
@@ -523,8 +549,8 @@ func startUnifiedWithListener(parent context.Context, configPath string, cfg *Co
 	}
 
 	srv := &http.Server{
-		Addr:    cfg.Listen,
-		Handler: rt.handler(),
+		Addr:              cfg.Listen,
+		Handler:           rt.handler(),
 		ReadHeaderTimeout: 30 * time.Second,
 		// ReadTimeout 覆盖整个请求读取（含 body 上传）：防慢速 body 拖死连接。
 		// 缺省 300s；server.read_timeout="0" 显式关闭。改动需重启进程。
@@ -549,4 +575,50 @@ func startUnifiedWithListener(parent context.Context, configPath string, cfg *Co
 		return nil
 	}
 	return err
+}
+
+// Side-provider stores refresh balances in their own workers. Sample their
+// in-memory snapshots so balance changes enter the same persistent ledger.
+func (rt *appRuntime) observeSideProviderCredits(ctx context.Context) {
+	observe := func() {
+		if rt.trae != nil {
+			for _, account := range rt.trae.List() {
+				if account.BalanceKnown {
+					rt.creditHist.ObserveProvider("trae", account.UID, account.Credits)
+				}
+			}
+		}
+		if rt.qoder != nil {
+			for _, account := range rt.qoder.List() {
+				if account.BalanceKnown {
+					rt.creditHist.ObserveProvider("qoder", account.UID, account.Credits)
+				}
+			}
+		}
+		if rt.minimax != nil {
+			for _, account := range rt.minimax.List() {
+				if account.BalanceKnown {
+					rt.creditHist.ObserveProvider("minimax", account.UID, account.Credits)
+				}
+			}
+		}
+		if rt.loomy != nil {
+			for _, account := range rt.loomy.List() {
+				if account.BalanceKnown {
+					rt.creditHist.ObserveProvider("loomy", account.UID, account.Credits)
+				}
+			}
+		}
+	}
+	observe()
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			observe()
+		}
+	}
 }

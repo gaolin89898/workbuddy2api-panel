@@ -181,11 +181,11 @@ func newAppRuntime(configPath string, cfg *Config, gateway bool) (*appRuntime, e
 	if rt.loomy, err = loomy.Open(stateSibling(cfg.StateFile, "loomy-accounts.json"), nil); err != nil {
 		return nil, err
 	}
-	applySideRefresh(rt)
-	if rt.antigravity, err = antigravity.Open(stateSibling(cfg.StateFile, "antigravity-accounts.json"), nil); err != nil {
+	if rt.doubao, err = doubao.Open(stateSibling(cfg.StateFile, "doubao-accounts.json"), nil); err != nil {
 		return nil, err
 	}
-	if rt.doubao, err = doubao.Open(stateSibling(cfg.StateFile, "doubao-accounts.json"), nil); err != nil {
+	applySideRefresh(rt)
+	if rt.antigravity, err = antigravity.Open(stateSibling(cfg.StateFile, "antigravity-accounts.json"), nil); err != nil {
 		return nil, err
 	}
 	if gateway {
@@ -193,12 +193,14 @@ func newAppRuntime(configPath string, cfg *Config, gateway bool) (*appRuntime, e
 	}
 
 	// 签到入口（自动排程 / 启动补签 / 面板手动触发共用）：
-	// WorkBuddy 池签到由 scheduler 负责，Trae / MiniMax 经 CheckinHook 同批执行（Loomy 不做签到）。
+	// WorkBuddy 池签到由 scheduler 负责，Trae / MiniMax / 豆包 经 CheckinHook
+	// 同批执行（Loomy / Antigravity 不做签到）。
 	runSideCheckin := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
 		rt.trae.RunAll(ctx, "checkin")
 		rt.minimax.RunAll(ctx, "checkin")
+		rt.doubao.RunAll(ctx, "checkin")
 	}
 	// 调度器：签到永远按 account-settings.json；网关任务族（旅行/活跃/保活/
 	// 夜猫子/成长/连登）仅网关模式按 config 生效——账号模式恒关，且迁移已把
@@ -363,6 +365,7 @@ func applySideRefresh(rt *appRuntime) {
 	rt.qoder.SetRefreshEnabled(refresh)
 	rt.minimax.SetRefreshEnabled(refresh)
 	rt.loomy.SetRefreshEnabled(refresh)
+	rt.doubao.SetRefreshEnabled(refresh)
 }
 
 // logSchedulerStatus 启动日志：说明各任务族的实际生效状态。

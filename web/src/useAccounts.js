@@ -178,7 +178,7 @@ export function useAccounts() {
       remaining: minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : `${minutes} 分钟`,
     };
   };
-  const nextRun = computed(() => ['antigravity', 'doubao', 'loomy'].includes(provider.value) ? null : nextRunFor(effectiveHours.value));
+  const nextRun = computed(() => ['antigravity', 'loomy'].includes(provider.value) ? null : nextRunFor(effectiveHours.value));
   // 统一视图的下次签到：不按 Qoder 顺延，即所有平台中最早的可签到时刻。
   const allNextRun = computed(() => nextRunFor([...new Set(schedule.value?.checkin_hours || [])].sort((a, b) => a - b)));
   const expiryEntries = computed(() => accounts.value.flatMap(account =>
@@ -198,11 +198,11 @@ export function useAccounts() {
     if (!response.ok) throw new Error(data.error || `请求失败：HTTP ${response.status}`);
     return data;
   }
-  async function action(name, callback) {
+  async function action(name, callback, { quiet = false } = {}) {
     if (busy.has(name)) return;
     busy.add(name);
     try { return await callback(); }
-    catch (cause) { if (cause.name !== 'AbortError') Message.error(cause.message); throw cause; }
+    catch (cause) { if (!quiet && cause.name !== 'AbortError') Message.error(cause.message); throw cause; }
     finally { busy.delete(name); }
   }
   function refreshOverview() {
@@ -239,7 +239,7 @@ export function useAccounts() {
       localStorage.setItem(KEY_STORAGE, data.token || managementKey.value);
     }
   }
-  async function connect() {
+  async function connect({ quiet = false } = {}) {
     await action('connect', async () => {
       try {
         await refreshKey();
@@ -251,7 +251,7 @@ export function useAccounts() {
         error.value = cause.message;
         throw cause;
       }
-    });
+    }, { quiet });
   }
   async function refreshBalances() {
     return action('balances', async () => {
@@ -688,7 +688,11 @@ export function useAccounts() {
     connect().catch(() => {});
     clockTimer = setInterval(() => { now.value = Date.now(); }, 30000);
     refreshTimer = setInterval(() => {
-      if (document.hidden || !connected.value) return;
+      if (document.hidden || busy.has('connect')) return;
+      if (!connected.value) {
+        connect({ quiet: true }).catch(() => {});
+        return;
+      }
       Promise.allSettled([refreshOverview(), refreshLogs(), refreshDesktop()]);
     }, 5000);
   });

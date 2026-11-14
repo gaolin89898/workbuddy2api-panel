@@ -18,6 +18,7 @@ func (p *Panel) doubaoRoutes() {
 	p.mux.HandleFunc("POST /panel/api/doubao/accounts", p.withAuth(p.doubaoAdd))
 	p.mux.HandleFunc("POST /panel/api/doubao/accounts/{uid}/{action}", p.withAuth(p.doubaoAction))
 	p.mux.HandleFunc("POST /panel/api/doubao/balance_all", p.withAuth(p.doubaoRefreshAll))
+	p.mux.HandleFunc("POST /panel/api/doubao/checkin_all", p.withAuth(p.doubaoCheckinAll))
 }
 func (p *Panel) doubaoAccounts() []doubao.Status {
 	if p.cfg.Doubao == nil {
@@ -63,7 +64,7 @@ func (p *Panel) doubaoAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	action := r.PathValue("action")
-	if action != "remove" && action != "disable" && action != "revive" && action != "balance" {
+	if action != "remove" && action != "disable" && action != "revive" && action != "balance" && action != "checkin" {
 		http.NotFound(w, r)
 		return
 	}
@@ -79,7 +80,20 @@ func (p *Panel) doubaoAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("doubao: %s 完成", action)
-	writeJSON(w, 200, map[string]any{"ok": true, "account": a})
+	writeJSON(w, 200, map[string]any{"ok": true, "account": a, "checkin_done": a.CheckinDone})
+}
+
+func (p *Panel) doubaoCheckinAll(w http.ResponseWriter, r *http.Request) {
+	if !p.doubaoReady(w) {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		p.cfg.Doubao.RunAll(ctx, "checkin")
+	}()
+	log.Printf("doubao: 手动签到已开始")
+	writeJSON(w, 200, map[string]any{"ok": true, "started": true})
 }
 func (p *Panel) doubaoRefreshAll(w http.ResponseWriter, r *http.Request) {
 	if !p.doubaoReady(w) {

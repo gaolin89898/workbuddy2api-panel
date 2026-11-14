@@ -12,6 +12,14 @@ import (
 
 func TestDoubaoRoutesAuthenticationFormsAndLifecycle(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/alice/ug/campaign/landing/checkin" {
+			w.Write([]byte(`{"code":0,"msg":"","data":{"checked_in":true,"checkin_date":"2026-11-14","continuous_days":2,"idempotent":true,"reward_amount":200,"reward_type":"quota_grant"}}`))
+			return
+		}
+		if r.URL.Path == "/alice/ug/campaign/v3/detail/" {
+			w.Write([]byte(`{"code":0,"data":{"progress":{"total_amount":4100},"tasks":[{"task_kind":"daily_signin","task_status":3,"daily_checkin":{"checked_in_today":true,"last_checkin_date":"2026-11-14","continuous_days":2,"total_days":15,"reward":{"reward_amount":200,"reward_type":"quota_grant"}}}]}}`))
+			return
+		}
 		w.Write([]byte(`{"message":"success","data":{"user_id":"123","screen_name":"豆包测试"}}`))
 	}))
 	defer upstream.Close()
@@ -42,7 +50,12 @@ func TestDoubaoRoutesAuthenticationFormsAndLifecycle(t *testing.T) {
 	call("accounts", `{"cookie":"private-session","base_url":"https://example.com"}`, "test-key", 400)
 	call("accounts", `{"cookie":"private-session"}`, "test-key", 200)
 	uid := s.List()[0].UID
-	call("accounts/"+uid+"/checkin", ``, "test-key", 404)
+	call("accounts/"+uid+"/nope", ``, "test-key", 404)
+	call("accounts/"+uid+"/checkin", ``, "test-key", 200)
+	if s.List()[0].LastCheckinDate != "2026-11-14" {
+		t.Fatalf("checkin date not recorded: %+v", s.List()[0])
+	}
+	call("checkin_all", ``, "test-key", 200)
 	call("accounts/"+uid+"/disable", ``, "test-key", 200)
 	call("accounts/"+uid+"/revive", ``, "test-key", 200)
 	call("balance_all", ``, "test-key", 200)

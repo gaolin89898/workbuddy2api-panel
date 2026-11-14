@@ -1,19 +1,21 @@
 {
   "name": "dsh-workbuddy-accounts",
-  "version": "0.1.55",
+  "version": "0.1.60",
   "private": true,
   "type": "module",
-  "description": "AI 工具箱：WorkBuddy、Trae、Qoder、MiniMax、Loomy、Antigravity、豆包 的账号与多平台网关管理。",
+  "description": "AI 工具箱：WorkBuddy、Trae、Qoder、MiniMax、Loomy、Antigravity、豆包 的账号与多平台网关管理。网关地址 http://127.0.0.1:7863/v1，管理密钥在「签到设置」页查看复制。",
   "main": "lib/index.js",
   "exports": {
     ".": "./lib/index.js",
     "./client": "./lib/client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "lib",
     "public",
+    "locale",
     "cordis.patch.yml",
     "README.md"
   ],

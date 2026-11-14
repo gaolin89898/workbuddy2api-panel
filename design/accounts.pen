@@ -25923,10 +25923,10 @@
       "id": "ykBDH",
       "x": 1110,
       "y": 1104,
-      "name": "桌面图标 · WorkBuddy",
+      "name": "桌面图标 · 账号控制台",
       "clip": true,
-      "width": 960,
-      "height": 700,
+      "width": 1000,
+      "height": 904,
       "fill": "$bg",
       "layout": "vertical",
       "gap": 20,
@@ -25973,7 +25973,7 @@
                   "id": "F8E5e",
                   "name": "Sub",
                   "fill": "$ink-2",
-                  "content": "WorkBuddy 账号控制台 · 钴蓝 / 炭黑",
+                  "content": "多平台账号控制台 · 炭黑 / 钴蓝",
                   "fontFamily": "$font-ui",
                   "fontSize": 11.5,
                   "fontWeight": "normal"
@@ -26010,7 +26010,7 @@
                   "id": "YRjt0",
                   "name": "Text",
                   "fill": "$muted",
-                  "content": "PNG · 1024 × 1024",
+                  "content": "PNG · 1024 × 1024 · macOS / Windows",
                   "fontFamily": "$font-mono",
                   "fontSize": 10,
                   "fontWeight": "500"
@@ -26021,217 +26021,182 @@
         },
         {
           "type": "frame",
-          "id": "s7vK0F",
+          "id": "POZKd",
           "name": "Content",
           "width": "fill_container",
-          "height": 470,
+          "height": 660,
           "gap": 24,
           "children": [
             {
               "type": "frame",
-              "id": "QHCaC",
-              "name": "Icon Preview",
-              "width": 420,
+              "id": "M89p5",
+              "name": "Left Column",
+              "width": 400,
               "height": "fill_container",
-              "fill": "$surface",
-              "cornerRadius": 16,
-              "stroke": "$line",
-              "strokeWidth": 1,
               "layout": "vertical",
-              "gap": 14,
-              "justifyContent": "center",
-              "alignItems": "center",
+              "gap": 24,
               "children": [
                 {
                   "type": "frame",
-                  "id": "YUWhr",
-                  "name": "App Icon 320",
-                  "width": 320,
-                  "height": 320,
-                  "fill": {
-                    "type": "gradient",
-                    "gradientType": "linear",
-                    "enabled": true,
-                    "rotation": 135,
-                    "size": {
-                      "height": 1
-                    },
-                    "colors": [
-                      {
-                        "color": "#2B45C9",
-                        "position": 0
-                      },
-                      {
-                        "color": "#1E3199",
-                        "position": 1
-                      }
-                    ]
-                  },
-                  "cornerRadius": 72,
-                  "stroke": "#FFFFFF26",
+                  "id": "jjiEB",
+                  "name": "Primary Icon Card",
+                  "width": "fill_container",
+                  "height": 420,
+                  "fill": "$surface",
+                  "cornerRadius": 16,
+                  "stroke": "$line",
                   "strokeWidth": 1,
-                  "strokeAlignment": "inner",
                   "layout": "vertical",
-                  "justifyContent": "center",
+                  "padding": 20,
+                  "justifyContent": "space_between",
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "text",
-                      "id": "Cr7bF",
-                      "name": "W",
-                      "fill": "#FFFFFF",
-                      "content": "W",
-                      "fontFamily": "$font-num",
-                      "fontSize": 190,
-                      "fontWeight": "700",
-                      "letterSpacing": -9
-                    },
-                    {
                       "type": "frame",
-                      "id": "KvCOY",
-                      "layoutPosition": "absolute",
-                      "x": 250,
-                      "y": 48,
-                      "name": "Buddy Dot",
-                      "width": 12,
-                      "height": 12,
-                      "fill": "#A9BCFF",
-                      "cornerRadius": 6
-                    }
-                  ]
-                },
-                {
-                  "type": "text",
-                  "id": "n4CZwR",
-                  "name": "Label",
-                  "fill": "$ink",
-                  "content": "WorkBuddy 控制台",
-                  "fontFamily": "$font-ui",
-                  "fontSize": 12,
-                  "fontWeight": "600"
-                },
-                {
-                  "type": "text",
-                  "id": "qn0N5",
-                  "name": "Meta",
-                  "fill": "$muted",
-                  "content": "1024 × 1024 · 圆角 22%",
-                  "fontFamily": "$font-ui",
-                  "fontSize": 9.5,
-                  "fontWeight": "normal"
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "NBv99",
-              "name": "Right Column",
-              "width": 460,
-              "height": "fill_container",
-              "layout": "vertical",
-              "gap": 16,
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "xWu6e",
-                  "name": "Desktop Preview",
-                  "clip": true,
-                  "width": "fill_container",
-                  "height": 260,
-                  "fill": {
-                    "type": "gradient",
-                    "gradientType": "linear",
-                    "enabled": true,
-                    "rotation": 135,
-                    "size": {
-                      "height": 1
-                    },
-                    "colors": [
-                      {
-                        "color": "#1A1B20",
-                        "position": 0
-                      },
-                      {
-                        "color": "#101116",
-                        "position": 1
-                      }
-                    ]
-                  },
-                  "cornerRadius": 14,
-                  "layout": "vertical",
-                  "padding": 18,
-                  "justifyContent": "space_between",
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "M3QIN8",
-                      "name": "Top",
+                      "id": "cDahS",
+                      "name": "Card Head",
                       "width": "fill_container",
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
                         {
+                          "type": "text",
+                          "id": "OgdSl",
+                          "name": "Kicker",
+                          "fill": "$muted",
+                          "content": "PRIMARY · 1024",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 9.5,
+                          "fontWeight": "normal",
+                          "letterSpacing": 1
+                        },
+                        {
                           "type": "frame",
-                          "id": "xB8Ip",
-                          "name": "Dots",
-                          "gap": 5,
+                          "id": "FtbqG",
+                          "name": "Badge",
+                          "fill": "$accent-soft",
+                          "cornerRadius": 99,
+                          "padding": [
+                            3,
+                            8
+                          ],
                           "alignItems": "center",
                           "children": [
                             {
-                              "type": "frame",
-                              "id": "QzjRH",
-                              "name": "Dot",
-                              "width": 7,
-                              "height": 7,
-                              "fill": "#E06C6C",
-                              "cornerRadius": 4
-                            },
-                            {
-                              "type": "frame",
-                              "id": "RmNI2",
-                              "name": "Dot",
-                              "width": 7,
-                              "height": 7,
-                              "fill": "#E0B25C",
-                              "cornerRadius": 4
-                            },
-                            {
-                              "type": "frame",
-                              "id": "ki9vK",
-                              "name": "Dot",
-                              "width": 7,
-                              "height": 7,
-                              "fill": "#7C9CFF",
-                              "cornerRadius": 4
+                              "type": "text",
+                              "id": "Unv0r",
+                              "name": "Badge Label",
+                              "fill": "$accent",
+                              "content": "推荐",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 9,
+                              "fontWeight": "600"
                             }
                           ]
-                        },
-                        {
-                          "type": "text",
-                          "id": "iBKkj",
-                          "name": "Label",
-                          "fill": "#979AA4",
-                          "content": "桌面预览",
-                          "fontFamily": "$font-mono",
-                          "fontSize": 9,
-                          "fontWeight": "normal"
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "NZrJ9",
-                      "name": "Center",
-                      "layout": "vertical",
-                      "gap": 8,
-                      "alignItems": "center",
+                      "id": "h2BmYZ",
+                      "name": "App Icon · Primary",
+                      "clip": true,
+                      "width": 248,
+                      "height": 248,
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "linear",
+                        "enabled": true,
+                        "rotation": 135,
+                        "size": {
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#2B3244",
+                            "position": 0
+                          },
+                          {
+                            "color": "#17181E",
+                            "position": 0.55
+                          },
+                          {
+                            "color": "#0E0F13",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "cornerRadius": 55.4776,
+                      "stroke": "#FFFFFF26",
+                      "strokeWidth": 1.24,
+                      "strokeAlignment": "inner",
+                      "layout": "none",
                       "children": [
                         {
+                          "type": "ellipse",
+                          "id": "ExEPa",
+                          "x": 4.96,
+                          "y": 64.48,
+                          "name": "Core Glow",
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "radial",
+                            "enabled": true,
+                            "opacity": 0.5,
+                            "rotation": 0,
+                            "size": {
+                              "width": 1,
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#2B45C9",
+                                "position": 0
+                              },
+                              {
+                                "color": "#2B45C900",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "width": 238.07999999999998,
+                          "height": 243.04
+                        },
+                        {
                           "type": "frame",
-                          "id": "EO4aM",
-                          "name": "App Icon 56",
-                          "width": 56,
-                          "height": 56,
+                          "id": "Jkwgh",
+                          "x": 0,
+                          "y": 0,
+                          "name": "Top Light",
+                          "width": 248,
+                          "height": 133.92000000000002,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#FFFFFF0F",
+                                "position": 0
+                              },
+                              {
+                                "color": "#FFFFFF00",
+                                "position": 1
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 19.84,
+                          "id": "PoXQN",
+                          "x": 104.16,
+                          "y": 39.68,
+                          "name": "Card Back",
                           "fill": {
                             "type": "gradient",
                             "gradientType": "linear",
@@ -26242,87 +26207,219 @@
                             },
                             "colors": [
                               {
-                                "color": "#2B45C9",
+                                "color": "#353D4C",
                                 "position": 0
                               },
                               {
-                                "color": "#1E3199",
+                                "color": "#242A35",
                                 "position": 1
                               }
                             ]
                           },
-                          "cornerRadius": 13,
-                          "stroke": "#FFFFFF26",
-                          "strokeWidth": 1,
-                          "strokeAlignment": "inner",
-                          "layout": "vertical",
-                          "justifyContent": "center",
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "text",
-                              "id": "b1f66",
-                              "name": "W",
-                              "fill": "#FFFFFF",
-                              "content": "W",
-                              "fontFamily": "$font-num",
-                              "fontSize": 33,
-                              "fontWeight": "700",
-                              "letterSpacing": -1
-                            },
-                            {
-                              "type": "frame",
-                              "id": "d3ErU",
-                              "layoutPosition": "absolute",
-                              "x": 44,
-                              "y": 8,
-                              "name": "Buddy Dot",
-                              "width": 2,
-                              "height": 2,
-                              "fill": "#A9BCFF",
-                              "cornerRadius": 1
-                            }
-                          ]
+                          "width": 89.28,
+                          "height": 114.08,
+                          "stroke": "#FFFFFF1A",
+                          "strokeWidth": 1.24,
+                          "strokeAlignment": "inner"
                         },
                         {
-                          "type": "text",
-                          "id": "rCMnY",
-                          "name": "Name",
-                          "fill": "#F2F2F4",
-                          "content": "WorkBuddy 控制台",
-                          "fontFamily": "$font-ui",
-                          "fontSize": 10,
-                          "fontWeight": "500"
+                          "type": "rectangle",
+                          "cornerRadius": 19.84,
+                          "id": "GyPSs",
+                          "x": 79.36,
+                          "y": 64.48,
+                          "name": "Card Mid",
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#3D4859",
+                                "position": 0
+                              },
+                              {
+                                "color": "#2A3340",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "width": 89.28,
+                          "height": 114.08,
+                          "stroke": "#FFFFFF21",
+                          "strokeWidth": 1.24,
+                          "strokeAlignment": "inner"
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 19.84,
+                          "id": "D2Sbs",
+                          "x": 54.56,
+                          "y": 89.28,
+                          "name": "Card Front",
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#5B79FF",
+                                "position": 0
+                              },
+                              {
+                                "color": "#3550E8",
+                                "position": 0.5
+                              },
+                              {
+                                "color": "#2233A0",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "width": 89.28,
+                          "height": 114.08,
+                          "stroke": "#FFFFFF33",
+                          "strokeWidth": 1.24,
+                          "strokeAlignment": "inner"
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "E8EKqa",
+                          "x": 89.9744,
+                          "y": 124.39679999999998,
+                          "name": "Head",
+                          "fill": "#FFFFFF",
+                          "width": 18.4512,
+                          "height": 18.4512
+                        },
+                        {
+                          "type": "path",
+                          "id": "lGqUM",
+                          "x": 80.1536,
+                          "y": 146.71679999999998,
+                          "name": "Shoulders",
+                          "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                          "viewBox": [
+                            0,
+                            0,
+                            64,
+                            41
+                          ],
+                          "fill": "#FFFFFF",
+                          "width": 38.0928,
+                          "height": 24.4032
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "vBy2P",
-                      "name": "Dock Wrap",
+                      "id": "q2KwvM",
+                      "name": "Icon Label",
+                      "layout": "vertical",
+                      "gap": 3,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "aLFdn",
+                          "name": "Name",
+                          "fill": "$ink",
+                          "content": "账号控制台",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 14,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "p59MDc",
+                          "name": "Meta",
+                          "fill": "$muted",
+                          "content": "多平台账号 · 叠层主图标",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 9.5,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "A7z6ml",
+                  "name": "Variants Card",
+                  "width": "fill_container",
+                  "height": 216,
+                  "fill": "$surface",
+                  "cornerRadius": 16,
+                  "stroke": "$line",
+                  "strokeWidth": 1,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": 20,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "FHuWw",
+                      "name": "Card Head",
                       "width": "fill_container",
-                      "justifyContent": "center",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "ieCOV",
+                          "name": "Title",
+                          "fill": "$ink",
+                          "content": "变体",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 12,
+                          "fontWeight": "600"
+                        },
+                        {
+                          "type": "text",
+                          "id": "q7uH8",
+                          "name": "Meta",
+                          "fill": "$muted",
+                          "content": "DARK / LIGHT / BRAND / MONO",
+                          "fontFamily": "$font-mono",
+                          "fontSize": 8.5,
+                          "fontWeight": "normal",
+                          "letterSpacing": 0.6
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZtHPA",
+                      "name": "Variant Row",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "justifyContent": "space_around",
+                      "alignItems": "center",
                       "children": [
                         {
                           "type": "frame",
-                          "id": "jg9Nu",
-                          "name": "Dock",
-                          "height": 46,
-                          "fill": "#FFFFFF14",
-                          "cornerRadius": 12,
-                          "gap": 10,
-                          "padding": [
-                            6,
-                            10
-                          ],
+                          "id": "oMbLY",
+                          "name": "Variant 深色底",
+                          "layout": "vertical",
+                          "gap": 8,
                           "alignItems": "center",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "mCAgW",
-                              "name": "App Icon 32",
-                              "width": 32,
-                              "height": 32,
+                              "id": "a2qTu",
+                              "name": "Icon · 深色底",
+                              "clip": true,
+                              "width": 68,
+                              "height": 68,
                               "fill": {
                                 "type": "gradient",
                                 "gradientType": "linear",
@@ -26333,104 +26430,1629 @@
                                 },
                                 "colors": [
                                   {
-                                    "color": "#2B45C9",
+                                    "color": "#2B3244",
                                     "position": 0
                                   },
                                   {
-                                    "color": "#1E3199",
+                                    "color": "#17181E",
+                                    "position": 0.55
+                                  },
+                                  {
+                                    "color": "#0E0F13",
                                     "position": 1
                                   }
                                 ]
                               },
-                              "cornerRadius": 7,
+                              "cornerRadius": 15.2116,
                               "stroke": "#FFFFFF26",
                               "strokeWidth": 1,
                               "strokeAlignment": "inner",
-                              "layout": "vertical",
-                              "justifyContent": "center",
-                              "alignItems": "center",
+                              "layout": "none",
                               "children": [
                                 {
-                                  "type": "text",
-                                  "id": "I9nCL",
-                                  "name": "W",
+                                  "type": "ellipse",
+                                  "id": "OKwug",
+                                  "x": 1.36,
+                                  "y": 17.68,
+                                  "name": "Core Glow",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "radial",
+                                    "enabled": true,
+                                    "opacity": 0.5,
+                                    "rotation": 0,
+                                    "size": {
+                                      "width": 1,
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#2B45C9",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#2B45C900",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 65.28,
+                                  "height": 66.64
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "EmiIj",
+                                  "x": 0,
+                                  "y": 0,
+                                  "name": "Top Light",
+                                  "width": 68,
+                                  "height": 36.72,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 180,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#FFFFFF0F",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#FFFFFF00",
+                                        "position": 1
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "c2Jvd",
+                                  "x": 28.560000000000002,
+                                  "y": 10.88,
+                                  "name": "Card Back",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#353D4C",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#242A35",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 24.48,
+                                  "height": 31.28,
+                                  "stroke": "#FFFFFF1A",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner"
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "U1NXb",
+                                  "x": 21.76,
+                                  "y": 17.68,
+                                  "name": "Card Mid",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#3D4859",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#2A3340",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 24.48,
+                                  "height": 31.28,
+                                  "stroke": "#FFFFFF21",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner"
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "jw6eM",
+                                  "x": 14.96,
+                                  "y": 24.48,
+                                  "name": "Card Front",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#5B79FF",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#3550E8",
+                                        "position": 0.5
+                                      },
+                                      {
+                                        "color": "#2233A0",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 24.48,
+                                  "height": 31.28,
+                                  "stroke": "#FFFFFF33",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner"
+                                },
+                                {
+                                  "type": "ellipse",
+                                  "id": "ptOAH",
+                                  "x": 24.6704,
+                                  "y": 34.1088,
+                                  "name": "Head",
                                   "fill": "#FFFFFF",
-                                  "content": "W",
-                                  "fontFamily": "$font-num",
-                                  "fontSize": 19,
-                                  "fontWeight": "700",
-                                  "letterSpacing": -1
+                                  "width": 5.059200000000001,
+                                  "height": 5.059200000000001
+                                },
+                                {
+                                  "type": "path",
+                                  "id": "QpFse",
+                                  "x": 21.977600000000002,
+                                  "y": 40.2288,
+                                  "name": "Shoulders",
+                                  "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                                  "viewBox": [
+                                    0,
+                                    0,
+                                    64,
+                                    41
+                                  ],
+                                  "fill": "#FFFFFF",
+                                  "width": 10.4448,
+                                  "height": 6.6912
                                 }
                               ]
                             },
                             {
+                              "type": "text",
+                              "id": "OIva5",
+                              "name": "Label",
+                              "fill": "$ink-2",
+                              "content": "深色底",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 9.5,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "LepwA",
+                              "name": "Note",
+                              "fill": "$muted",
+                              "content": "主用",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 8.5,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "MI6ac",
+                          "name": "Variant 浅色底",
+                          "layout": "vertical",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
                               "type": "frame",
-                              "id": "yF8L0",
-                              "name": "Dock App",
-                              "width": 32,
-                              "height": 32,
-                              "fill": "#FFFFFF0F",
-                              "cornerRadius": 7,
-                              "justifyContent": "center",
-                              "alignItems": "center",
+                              "id": "LBXq7",
+                              "name": "Icon · 浅色底",
+                              "clip": true,
+                              "width": 68,
+                              "height": 68,
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 135,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#FFFFFF",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#EBE7DE",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "cornerRadius": 15.2116,
+                              "stroke": "#0000001A",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "layout": "none",
                               "children": [
                                 {
-                                  "type": "icon",
-                                  "id": "L7clnK",
-                                  "name": "Icon",
-                                  "width": 14,
-                                  "height": 14,
-                                  "icon": "folder",
-                                  "library": "lucide",
-                                  "fill": "#979AA4"
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "JsFRT",
+                                  "x": 28.560000000000002,
+                                  "y": 10.88,
+                                  "name": "Card Back",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#E2DCCE",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#D3CCBC",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 24.48,
+                                  "height": 31.28,
+                                  "stroke": "#00000014",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner"
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "FrQFN",
+                                  "x": 21.76,
+                                  "y": 17.68,
+                                  "name": "Card Mid",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#EFEAE0",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#DFD9CC",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 24.48,
+                                  "height": 31.28,
+                                  "stroke": "#0000001A",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner"
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "EoWEh",
+                                  "x": 14.96,
+                                  "y": 24.48,
+                                  "name": "Card Front",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#5B79FF",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#3550E8",
+                                        "position": 0.5
+                                      },
+                                      {
+                                        "color": "#2233A0",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 24.48,
+                                  "height": 31.28,
+                                  "stroke": "#FFFFFF33",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner"
+                                },
+                                {
+                                  "type": "ellipse",
+                                  "id": "fviie",
+                                  "x": 24.6704,
+                                  "y": 34.1088,
+                                  "name": "Head",
+                                  "fill": "#FFFFFF",
+                                  "width": 5.059200000000001,
+                                  "height": 5.059200000000001
+                                },
+                                {
+                                  "type": "path",
+                                  "id": "QXw3T",
+                                  "x": 21.977600000000002,
+                                  "y": 40.2288,
+                                  "name": "Shoulders",
+                                  "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                                  "viewBox": [
+                                    0,
+                                    0,
+                                    64,
+                                    41
+                                  ],
+                                  "fill": "#FFFFFF",
+                                  "width": 10.4448,
+                                  "height": 6.6912
                                 }
                               ]
                             },
                             {
+                              "type": "text",
+                              "id": "CKpy3",
+                              "name": "Label",
+                              "fill": "$ink-2",
+                              "content": "浅色底",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 9.5,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "geMXg",
+                              "name": "Note",
+                              "fill": "$muted",
+                              "content": "亮色桌面",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 8.5,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "eMSjX",
+                          "name": "Variant 钴蓝底",
+                          "layout": "vertical",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
                               "type": "frame",
-                              "id": "P8LAFJ",
-                              "name": "Dock App",
-                              "width": 32,
-                              "height": 32,
-                              "fill": "#FFFFFF0F",
-                              "cornerRadius": 7,
-                              "justifyContent": "center",
-                              "alignItems": "center",
+                              "id": "E63Fp",
+                              "name": "Icon · 钴蓝底",
+                              "clip": true,
+                              "width": 68,
+                              "height": 68,
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 135,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#3D5BEA",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#243BB0",
+                                    "position": 0.6
+                                  },
+                                  {
+                                    "color": "#1B2B86",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "cornerRadius": 15.2,
+                              "stroke": "#FFFFFF33",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner",
+                              "layout": "none",
                               "children": [
                                 {
-                                  "type": "icon",
-                                  "id": "U6ncN",
-                                  "name": "Icon",
-                                  "width": 14,
-                                  "height": 14,
-                                  "icon": "globe",
-                                  "library": "lucide",
-                                  "fill": "#979AA4"
+                                  "type": "frame",
+                                  "id": "FP30X",
+                                  "x": 0,
+                                  "y": 0,
+                                  "name": "Top Light",
+                                  "width": 68,
+                                  "height": 37,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 180,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#FFFFFF1A",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#FFFFFF00",
+                                        "position": 1
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "RZPs9",
+                                  "x": 28.560000000000002,
+                                  "y": 10.88,
+                                  "name": "Card Back",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#FFFFFF2E",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#FFFFFF1F",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 24.48,
+                                  "height": 31.28,
+                                  "stroke": "#FFFFFF33",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner"
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "O2sE9R",
+                                  "x": 21.76,
+                                  "y": 17.68,
+                                  "name": "Card Mid",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#FFFFFF4D",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#FFFFFF33",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 24.48,
+                                  "height": 31.28,
+                                  "stroke": "#FFFFFF3D",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner"
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "UPi4D",
+                                  "x": 14.96,
+                                  "y": 24.48,
+                                  "name": "Card Front",
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#FFFFFF",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#EAF0FF",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "width": 24.48,
+                                  "height": 31.28,
+                                  "stroke": "#FFFFFF",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner"
+                                },
+                                {
+                                  "type": "ellipse",
+                                  "id": "YU0jN",
+                                  "x": 24.6704,
+                                  "y": 34.1088,
+                                  "name": "Head",
+                                  "fill": "#2B45C9",
+                                  "width": 5.059200000000001,
+                                  "height": 5.059200000000001
+                                },
+                                {
+                                  "type": "path",
+                                  "id": "tXNxD",
+                                  "x": 21.977600000000002,
+                                  "y": 40.2288,
+                                  "name": "Shoulders",
+                                  "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                                  "viewBox": [
+                                    0,
+                                    0,
+                                    64,
+                                    41
+                                  ],
+                                  "fill": "#2B45C9",
+                                  "width": 10.4448,
+                                  "height": 6.6912
                                 }
                               ]
                             },
                             {
+                              "type": "text",
+                              "id": "uwQSX",
+                              "name": "Label",
+                              "fill": "$ink-2",
+                              "content": "钴蓝底",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 9.5,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "s6AIZf",
+                              "name": "Note",
+                              "fill": "$muted",
+                              "content": "品牌原色",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 8.5,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "M432zZ",
+                          "name": "Variant 单色",
+                          "layout": "vertical",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
                               "type": "frame",
-                              "id": "E6t22r",
-                              "name": "Dock App",
-                              "width": 32,
-                              "height": 32,
-                              "fill": "#FFFFFF0F",
-                              "cornerRadius": 7,
-                              "justifyContent": "center",
-                              "alignItems": "center",
+                              "id": "e1V7h",
+                              "name": "Icon · 单色",
+                              "clip": true,
+                              "width": 68,
+                              "height": 68,
+                              "cornerRadius": 15.2116,
+                              "layout": "none",
                               "children": [
                                 {
-                                  "type": "icon",
-                                  "id": "ykIxz",
-                                  "name": "Icon",
-                                  "width": 14,
-                                  "height": 14,
-                                  "icon": "terminal",
-                                  "library": "lucide",
-                                  "fill": "#979AA4"
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "fS9A7",
+                                  "x": 28.560000000000002,
+                                  "y": 10.88,
+                                  "name": "Card Back",
+                                  "fill": "#191A1E33",
+                                  "width": 24.48,
+                                  "height": 31.28
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "INif5",
+                                  "x": 21.76,
+                                  "y": 17.68,
+                                  "name": "Card Mid",
+                                  "fill": "#191A1E80",
+                                  "width": 24.48,
+                                  "height": 31.28
+                                },
+                                {
+                                  "type": "rectangle",
+                                  "cornerRadius": 5.44,
+                                  "id": "TJp6T",
+                                  "x": 14.96,
+                                  "y": 24.48,
+                                  "name": "Card Front",
+                                  "fill": "#191A1E",
+                                  "width": 24.48,
+                                  "height": 31.28
+                                },
+                                {
+                                  "type": "ellipse",
+                                  "id": "CNrUw",
+                                  "x": 24.6704,
+                                  "y": 34.1088,
+                                  "name": "Head",
+                                  "fill": "#FFFFFF",
+                                  "width": 5.059200000000001,
+                                  "height": 5.059200000000001
+                                },
+                                {
+                                  "type": "path",
+                                  "id": "AvDGS",
+                                  "x": 21.977600000000002,
+                                  "y": 40.2288,
+                                  "name": "Shoulders",
+                                  "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                                  "viewBox": [
+                                    0,
+                                    0,
+                                    64,
+                                    41
+                                  ],
+                                  "fill": "#FFFFFF",
+                                  "width": 10.4448,
+                                  "height": 6.6912
                                 }
                               ]
+                            },
+                            {
+                              "type": "text",
+                              "id": "tDakc",
+                              "name": "Label",
+                              "fill": "$ink-2",
+                              "content": "单色",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 9.5,
+                              "fontWeight": "500"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Lg7eL",
+                              "name": "Note",
+                              "fill": "$muted",
+                              "content": "透明底",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 8.5,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "MSZca",
+              "name": "Right Column",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 24,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "J7v1H",
+                  "name": "Desktop Preview",
+                  "clip": true,
+                  "width": "fill_container",
+                  "height": 380,
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 150,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#2A3548",
+                        "position": 0
+                      },
+                      {
+                        "color": "#151A24",
+                        "position": 0.5
+                      },
+                      {
+                        "color": "#090B10",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 16,
+                  "stroke": "#FFFFFF14",
+                  "strokeWidth": 1,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "WG71A",
+                      "x": -170,
+                      "y": 120,
+                      "name": "Glow Cobalt",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "radial",
+                        "enabled": true,
+                        "opacity": 0.32,
+                        "rotation": 0,
+                        "size": {
+                          "width": 1,
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#3550CC",
+                            "position": 0
+                          },
+                          {
+                            "color": "#3550CC00",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 520,
+                      "height": 520
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "a4jAeG",
+                      "x": -140,
+                      "y": -260,
+                      "name": "Glow Top Left",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "radial",
+                        "enabled": true,
+                        "opacity": 0.22,
+                        "rotation": 0,
+                        "size": {
+                          "width": 1,
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#7C93F5",
+                            "position": 0
+                          },
+                          {
+                            "color": "#7C93F500",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 660,
+                      "height": 660
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "O5788m",
+                      "x": 330,
+                      "y": 250,
+                      "name": "Glow Indigo",
+                      "fill": {
+                        "type": "gradient",
+                        "gradientType": "radial",
+                        "enabled": true,
+                        "opacity": 0.3,
+                        "rotation": 0,
+                        "size": {
+                          "width": 1,
+                          "height": 1
+                        },
+                        "colors": [
+                          {
+                            "color": "#1B2A55",
+                            "position": 0
+                          },
+                          {
+                            "color": "#1B2A5500",
+                            "position": 1
+                          }
+                        ]
+                      },
+                      "width": 380,
+                      "height": 380
+                    },
+                    {
+                      "type": "frame",
+                      "id": "AKqKo",
+                      "x": 0,
+                      "y": 0,
+                      "name": "Menu Bar",
+                      "width": 512,
+                      "height": 20,
+                      "fill": "#FFFFFF1A",
+                      "padding": [
+                        0,
+                        12
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "CWQnL",
+                          "name": "Bar Left",
+                          "gap": 6,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "vrHHq",
+                              "name": "Apple",
+                              "width": 9,
+                              "height": 9,
+                              "icon": "command",
+                              "library": "lucide",
+                              "fill": "#FFFFFFD9"
+                            },
+                            {
+                              "type": "text",
+                              "id": "bFHyr",
+                              "name": "App Name",
+                              "fill": "#FFFFFFE6",
+                              "content": "账号控制台",
+                              "fontFamily": "$font-ui",
+                              "fontSize": 8,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "yXRR6",
+                          "name": "Bar Right",
+                          "gap": 9,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "kxZf5",
+                              "name": "WiFi",
+                              "width": 9,
+                              "height": 9,
+                              "icon": "wifi",
+                              "library": "lucide",
+                              "fill": "#FFFFFFB3"
+                            },
+                            {
+                              "type": "icon",
+                              "id": "NEHcD",
+                              "name": "Battery",
+                              "width": 11,
+                              "height": 11,
+                              "icon": "battery-full",
+                              "library": "lucide",
+                              "fill": "#FFFFFFB3"
+                            },
+                            {
+                              "type": "text",
+                              "id": "n9TvDa",
+                              "name": "Clock",
+                              "fill": "#FFFFFFCC",
+                              "content": "21:04",
+                              "fontFamily": "$font-mono",
+                              "fontSize": 8,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "r4SUy",
+                      "x": 18,
+                      "y": 34,
+                      "name": "Wallpaper Note",
+                      "fill": "#FFFFFF85",
+                      "content": "DESKTOP · 深色壁纸",
+                      "fontFamily": "$font-mono",
+                      "fontSize": 8,
+                      "fontWeight": "normal",
+                      "letterSpacing": 1.1
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Ou0PM",
+                      "x": 392,
+                      "y": 44,
+                      "name": "Shortcut WorkBuddy",
+                      "width": 96,
+                      "layout": "vertical",
+                      "gap": 5,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "p7n7p",
+                          "name": "Shortcut Icon",
+                          "clip": true,
+                          "width": 54,
+                          "height": 54,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#2B3244",
+                                "position": 0
+                              },
+                              {
+                                "color": "#17181E",
+                                "position": 0.55
+                              },
+                              {
+                                "color": "#0E0F13",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "cornerRadius": 12.0798,
+                          "stroke": "#FFFFFF26",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "kxQFd",
+                              "x": 1.08,
+                              "y": 14.040000000000001,
+                              "name": "Core Glow",
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "radial",
+                                "enabled": true,
+                                "opacity": 0.5,
+                                "rotation": 0,
+                                "size": {
+                                  "width": 1,
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#2B45C9",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#2B45C900",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "width": 51.839999999999996,
+                              "height": 52.92
+                            },
+                            {
+                              "type": "frame",
+                              "id": "c5rdDD",
+                              "x": 0,
+                              "y": 0,
+                              "name": "Top Light",
+                              "width": 54,
+                              "height": 29.160000000000004,
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 180,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#FFFFFF0F",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#FFFFFF00",
+                                    "position": 1
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 4.32,
+                              "id": "v0rxl",
+                              "x": 22.68,
+                              "y": 8.64,
+                              "name": "Card Back",
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 135,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#353D4C",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#242A35",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "width": 19.44,
+                              "height": 24.840000000000003,
+                              "stroke": "#FFFFFF1A",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner"
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 4.32,
+                              "id": "RDQ9Q",
+                              "x": 17.28,
+                              "y": 14.040000000000001,
+                              "name": "Card Mid",
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 135,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#3D4859",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#2A3340",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "width": 19.44,
+                              "height": 24.840000000000003,
+                              "stroke": "#FFFFFF21",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner"
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 4.32,
+                              "id": "wKSei",
+                              "x": 11.88,
+                              "y": 19.44,
+                              "name": "Card Front",
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 135,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#5B79FF",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#3550E8",
+                                    "position": 0.5
+                                  },
+                                  {
+                                    "color": "#2233A0",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "width": 19.44,
+                              "height": 24.840000000000003,
+                              "stroke": "#FFFFFF33",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner"
+                            },
+                            {
+                              "type": "ellipse",
+                              "id": "J8HZU",
+                              "x": 19.5912,
+                              "y": 27.0864,
+                              "name": "Head",
+                              "fill": "#FFFFFF",
+                              "width": 4.017600000000001,
+                              "height": 4.017600000000001
+                            },
+                            {
+                              "type": "path",
+                              "id": "NXraF",
+                              "x": 17.4528,
+                              "y": 31.9464,
+                              "name": "Shoulders",
+                              "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                              "viewBox": [
+                                0,
+                                0,
+                                64,
+                                41
+                              ],
+                              "fill": "#FFFFFF",
+                              "width": 8.2944,
+                              "height": 5.3136
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "Ei30j",
+                          "name": "Shortcut Label",
+                          "fill": "#FFFFFF",
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000099",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 3
+                          },
+                          "content": "账号控制台",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 9,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "vJOEo",
+                      "x": 404,
+                      "y": 136,
+                      "name": "Shortcut Archive",
+                      "width": 72,
+                      "layout": "vertical",
+                      "gap": 5,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "oVVhm",
+                          "name": "Archive Tile",
+                          "width": 38,
+                          "height": 38,
+                          "fill": "#FFFFFF21",
+                          "cornerRadius": 9,
+                          "stroke": "#FFFFFF29",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "zUnmZ",
+                              "name": "Archive Glyph",
+                              "width": 17,
+                              "height": 17,
+                              "icon": "hard-drive",
+                              "library": "lucide",
+                              "fill": "#DDE4F2"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "UWSrW",
+                          "name": "Archive Label",
+                          "fill": "#FFFFFFD9",
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#00000099",
+                            "offset": {
+                              "x": 0,
+                              "y": 1
+                            },
+                            "blur": 3
+                          },
+                          "content": "归档",
+                          "fontFamily": "$font-ui",
+                          "fontSize": 8.5,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "r03xmo",
+                      "x": 141,
+                      "y": 300,
+                      "name": "Dock",
+                      "width": 230,
+                      "height": 62,
+                      "fill": "#FFFFFF1C",
+                      "cornerRadius": 16,
+                      "stroke": "#FFFFFF2E",
+                      "strokeWidth": 1,
+                      "effect": {
+                        "type": "background_blur",
+                        "radius": 14
+                      },
+                      "gap": 8,
+                      "padding": 8,
+                      "justifyContent": "center",
+                      "alignItems": "end",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "I2FoV",
+                          "name": "Dock App",
+                          "width": 34,
+                          "height": 34,
+                          "fill": "#39445C",
+                          "cornerRadius": 8.5,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "T4K0va",
+                              "name": "Glyph",
+                              "fill": "#FFFFFF33",
+                              "width": 12,
+                              "height": 12
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "osrhv",
+                          "name": "Dock App",
+                          "width": 34,
+                          "height": 34,
+                          "fill": "#4A3F58",
+                          "cornerRadius": 8.5,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 3,
+                              "id": "UPHxw",
+                              "name": "Glyph",
+                              "fill": "#FFFFFF33",
+                              "width": 12,
+                              "height": 12
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "SHrfn",
+                          "name": "Dock Icon WorkBuddy",
+                          "clip": true,
+                          "width": 46,
+                          "height": 46,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#2B3244",
+                                "position": 0
+                              },
+                              {
+                                "color": "#17181E",
+                                "position": 0.55
+                              },
+                              {
+                                "color": "#0E0F13",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "cornerRadius": 10.2902,
+                          "stroke": "#FFFFFF26",
+                          "strokeWidth": 1,
+                          "strokeAlignment": "inner",
+                          "layout": "none",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "nS760",
+                              "x": 0.92,
+                              "y": 11.96,
+                              "name": "Core Glow",
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "radial",
+                                "enabled": true,
+                                "opacity": 0.5,
+                                "rotation": 0,
+                                "size": {
+                                  "width": 1,
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#2B45C9",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#2B45C900",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "width": 44.16,
+                              "height": 45.08
+                            },
+                            {
+                              "type": "frame",
+                              "id": "LTXkO",
+                              "x": 0,
+                              "y": 0,
+                              "name": "Top Light",
+                              "width": 46,
+                              "height": 24.840000000000003,
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 180,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#FFFFFF0F",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#FFFFFF00",
+                                    "position": 1
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 3.68,
+                              "id": "fD2E5",
+                              "x": 19.32,
+                              "y": 7.36,
+                              "name": "Card Back",
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 135,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#353D4C",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#242A35",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "width": 16.560000000000002,
+                              "height": 21.16,
+                              "stroke": "#FFFFFF1A",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner"
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 3.68,
+                              "id": "FnmKF",
+                              "x": 14.72,
+                              "y": 11.96,
+                              "name": "Card Mid",
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 135,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#3D4859",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#2A3340",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "width": 16.560000000000002,
+                              "height": 21.16,
+                              "stroke": "#FFFFFF21",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner"
+                            },
+                            {
+                              "type": "rectangle",
+                              "cornerRadius": 3.68,
+                              "id": "ozQNE",
+                              "x": 10.120000000000001,
+                              "y": 16.560000000000002,
+                              "name": "Card Front",
+                              "fill": {
+                                "type": "gradient",
+                                "gradientType": "linear",
+                                "enabled": true,
+                                "rotation": 135,
+                                "size": {
+                                  "height": 1
+                                },
+                                "colors": [
+                                  {
+                                    "color": "#5B79FF",
+                                    "position": 0
+                                  },
+                                  {
+                                    "color": "#3550E8",
+                                    "position": 0.5
+                                  },
+                                  {
+                                    "color": "#2233A0",
+                                    "position": 1
+                                  }
+                                ]
+                              },
+                              "width": 16.560000000000002,
+                              "height": 21.16,
+                              "stroke": "#FFFFFF33",
+                              "strokeWidth": 1,
+                              "strokeAlignment": "inner"
+                            },
+                            {
+                              "type": "ellipse",
+                              "id": "P7Us3",
+                              "x": 16.6888,
+                              "y": 23.0736,
+                              "name": "Head",
+                              "fill": "#FFFFFF",
+                              "width": 3.4224,
+                              "height": 3.4224
+                            },
+                            {
+                              "type": "path",
+                              "id": "qxdl6",
+                              "x": 14.8672,
+                              "y": 27.2136,
+                              "name": "Shoulders",
+                              "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                              "viewBox": [
+                                0,
+                                0,
+                                64,
+                                41
+                              ],
+                              "fill": "#FFFFFF",
+                              "width": 7.0656,
+                              "height": 4.5264
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "rU7S1",
+                          "name": "Dock App",
+                          "width": 34,
+                          "height": 34,
+                          "fill": "#2F4B60",
+                          "cornerRadius": 8.5,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "ellipse",
+                              "id": "EMXmd",
+                              "name": "Glyph",
+                              "fill": "#FFFFFF33",
+                              "width": 12,
+                              "height": 12
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "h3OIY",
+                          "name": "Dock Trash",
+                          "width": 34,
+                          "height": 34,
+                          "fill": "#FFFFFF14",
+                          "cornerRadius": 8.5,
+                          "stroke": "#FFFFFF26",
+                          "strokeWidth": 1,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon",
+                              "id": "ZXQoP",
+                              "name": "Trash",
+                              "width": 16,
+                              "height": 16,
+                              "icon": "trash-2",
+                              "library": "lucide",
+                              "fill": "#FFFFFFB3"
                             }
                           ]
                         }
@@ -26440,29 +28062,29 @@
                 },
                 {
                   "type": "frame",
-                  "id": "VxJpy",
-                  "name": "Sizes",
+                  "id": "VHWSV",
+                  "name": "Sizes Card",
                   "width": "fill_container",
-                  "height": 194,
+                  "height": 256,
                   "fill": "$surface",
-                  "cornerRadius": 14,
+                  "cornerRadius": 16,
                   "stroke": "$line",
                   "strokeWidth": 1,
                   "layout": "vertical",
-                  "gap": 10,
+                  "gap": 12,
                   "padding": 18,
                   "children": [
                     {
                       "type": "frame",
-                      "id": "JWQUo",
-                      "name": "Head",
+                      "id": "I3bAKk",
+                      "name": "Card Head",
                       "width": "fill_container",
                       "justifyContent": "space_between",
                       "alignItems": "center",
                       "children": [
                         {
                           "type": "text",
-                          "id": "s044a",
+                          "id": "o3P9kc",
                           "name": "Title",
                           "fill": "$ink",
                           "content": "尺寸适配",
@@ -26472,230 +28094,1054 @@
                         },
                         {
                           "type": "text",
-                          "id": "g1MjF3",
-                          "name": "Hint",
+                          "id": "ryPhY",
+                          "name": "Meta",
                           "fill": "$muted",
-                          "content": "112 / 64 / 32 px",
+                          "content": "16 → 128 PX",
                           "fontFamily": "$font-mono",
-                          "fontSize": 9.5,
-                          "fontWeight": "normal"
+                          "fontSize": 8.5,
+                          "fontWeight": "normal",
+                          "letterSpacing": 0.6
                         }
                       ]
                     },
                     {
                       "type": "frame",
-                      "id": "pyJsf",
-                      "name": "Variants",
+                      "id": "R8D4z4",
+                      "name": "Size Row",
                       "width": "fill_container",
-                      "gap": 36,
-                      "justifyContent": "center",
-                      "alignItems": "end",
+                      "height": "fill_container",
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
                       "children": [
                         {
                           "type": "frame",
-                          "id": "txHoq",
-                          "name": "Variant 112",
-                          "layout": "vertical",
-                          "gap": 6,
-                          "alignItems": "center",
+                          "id": "qlv2i",
+                          "name": "Size Group",
+                          "gap": 20,
+                          "alignItems": "end",
                           "children": [
                             {
                               "type": "frame",
-                              "id": "uxIXK",
-                              "name": "App Icon 112",
-                              "width": 112,
-                              "height": 112,
-                              "fill": {
-                                "type": "gradient",
-                                "gradientType": "linear",
-                                "enabled": true,
-                                "rotation": 135,
-                                "size": {
-                                  "height": 1
-                                },
-                                "colors": [
-                                  {
-                                    "color": "#2B45C9",
-                                    "position": 0
-                                  },
-                                  {
-                                    "color": "#1E3199",
-                                    "position": 1
-                                  }
-                                ]
-                              },
-                              "cornerRadius": 25,
-                              "stroke": "#FFFFFF26",
-                              "strokeWidth": 1,
-                              "strokeAlignment": "inner",
+                              "id": "ZHYEG",
+                              "name": "Size 128",
                               "layout": "vertical",
-                              "justifyContent": "center",
+                              "gap": 8,
                               "alignItems": "center",
                               "children": [
-                                {
-                                  "type": "text",
-                                  "id": "r8p7V",
-                                  "name": "W",
-                                  "fill": "#FFFFFF",
-                                  "content": "W",
-                                  "fontFamily": "$font-num",
-                                  "fontSize": 66,
-                                  "fontWeight": "700",
-                                  "letterSpacing": -3
-                                },
                                 {
                                   "type": "frame",
-                                  "id": "ABFCS",
-                                  "layoutPosition": "absolute",
-                                  "x": 87,
-                                  "y": 17,
-                                  "name": "Buddy Dot",
-                                  "width": 4,
-                                  "height": 4,
-                                  "fill": "#A9BCFF",
-                                  "cornerRadius": 2
+                                  "id": "aX35Z",
+                                  "name": "Icon 128",
+                                  "clip": true,
+                                  "width": 128,
+                                  "height": 128,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#2B3244",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#17181E",
+                                        "position": 0.55
+                                      },
+                                      {
+                                        "color": "#0E0F13",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 28.6336,
+                                  "stroke": "#FFFFFF26",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "none",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "GIwyb",
+                                      "x": 2.56,
+                                      "y": 33.28,
+                                      "name": "Core Glow",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "radial",
+                                        "enabled": true,
+                                        "opacity": 0.5,
+                                        "rotation": 0,
+                                        "size": {
+                                          "width": 1,
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#2B45C9",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#2B45C900",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 122.88,
+                                      "height": 125.44
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "Oukiv",
+                                      "x": 0,
+                                      "y": 0,
+                                      "name": "Top Light",
+                                      "width": 128,
+                                      "height": 69.12,
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 180,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#FFFFFF0F",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#FFFFFF00",
+                                            "position": 1
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 10.24,
+                                      "id": "N3QyvR",
+                                      "x": 53.76,
+                                      "y": 20.48,
+                                      "name": "Card Back",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#353D4C",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#242A35",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 46.08,
+                                      "height": 58.88,
+                                      "stroke": "#FFFFFF1A",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 10.24,
+                                      "id": "OKQsC",
+                                      "x": 40.96,
+                                      "y": 33.28,
+                                      "name": "Card Mid",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#3D4859",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#2A3340",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 46.08,
+                                      "height": 58.88,
+                                      "stroke": "#FFFFFF21",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 10.24,
+                                      "id": "OIsGw",
+                                      "x": 28.16,
+                                      "y": 46.08,
+                                      "name": "Card Front",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#5B79FF",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#3550E8",
+                                            "position": 0.5
+                                          },
+                                          {
+                                            "color": "#2233A0",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 46.08,
+                                      "height": 58.88,
+                                      "stroke": "#FFFFFF33",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "ellipse",
+                                      "id": "ESKJl",
+                                      "x": 46.4384,
+                                      "y": 64.20479999999999,
+                                      "name": "Head",
+                                      "fill": "#FFFFFF",
+                                      "width": 9.523200000000001,
+                                      "height": 9.523200000000001
+                                    },
+                                    {
+                                      "type": "path",
+                                      "id": "Rnj3o",
+                                      "x": 41.3696,
+                                      "y": 75.7248,
+                                      "name": "Shoulders",
+                                      "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                                      "viewBox": [
+                                        0,
+                                        0,
+                                        64,
+                                        41
+                                      ],
+                                      "fill": "#FFFFFF",
+                                      "width": 19.6608,
+                                      "height": 12.5952
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "e7kQGu",
+                                  "name": "Label",
+                                  "fill": "$muted",
+                                  "content": "128 px",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 8.5,
+                                  "fontWeight": "normal"
                                 }
                               ]
                             },
                             {
-                              "type": "text",
-                              "id": "aKyOJ",
-                              "name": "Label",
-                              "fill": "$muted",
-                              "content": "112 px",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 9,
-                              "fontWeight": "normal"
+                              "type": "frame",
+                              "id": "f7mG7",
+                              "name": "Size 64",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "cRVke",
+                                  "name": "Icon 64",
+                                  "clip": true,
+                                  "width": 64,
+                                  "height": 64,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#2B3244",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#17181E",
+                                        "position": 0.55
+                                      },
+                                      {
+                                        "color": "#0E0F13",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 14.3168,
+                                  "stroke": "#FFFFFF26",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "none",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "buGAJ",
+                                      "x": 1.28,
+                                      "y": 16.64,
+                                      "name": "Core Glow",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "radial",
+                                        "enabled": true,
+                                        "opacity": 0.5,
+                                        "rotation": 0,
+                                        "size": {
+                                          "width": 1,
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#2B45C9",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#2B45C900",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 61.44,
+                                      "height": 62.72
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "DmwG0",
+                                      "x": 0,
+                                      "y": 0,
+                                      "name": "Top Light",
+                                      "width": 64,
+                                      "height": 34.56,
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 180,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#FFFFFF0F",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#FFFFFF00",
+                                            "position": 1
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 5.12,
+                                      "id": "bEys3",
+                                      "x": 26.88,
+                                      "y": 10.24,
+                                      "name": "Card Back",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#353D4C",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#242A35",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 23.04,
+                                      "height": 29.44,
+                                      "stroke": "#FFFFFF1A",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 5.12,
+                                      "id": "ZASCh",
+                                      "x": 20.48,
+                                      "y": 16.64,
+                                      "name": "Card Mid",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#3D4859",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#2A3340",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 23.04,
+                                      "height": 29.44,
+                                      "stroke": "#FFFFFF21",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 5.12,
+                                      "id": "zLsHX",
+                                      "x": 14.08,
+                                      "y": 23.04,
+                                      "name": "Card Front",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#5B79FF",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#3550E8",
+                                            "position": 0.5
+                                          },
+                                          {
+                                            "color": "#2233A0",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 23.04,
+                                      "height": 29.44,
+                                      "stroke": "#FFFFFF33",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "ellipse",
+                                      "id": "fDssF",
+                                      "x": 23.2192,
+                                      "y": 32.102399999999996,
+                                      "name": "Head",
+                                      "fill": "#FFFFFF",
+                                      "width": 4.7616000000000005,
+                                      "height": 4.7616000000000005
+                                    },
+                                    {
+                                      "type": "path",
+                                      "id": "BCJpL",
+                                      "x": 20.6848,
+                                      "y": 37.8624,
+                                      "name": "Shoulders",
+                                      "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                                      "viewBox": [
+                                        0,
+                                        0,
+                                        64,
+                                        41
+                                      ],
+                                      "fill": "#FFFFFF",
+                                      "width": 9.8304,
+                                      "height": 6.2976
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "zHz5I",
+                                  "name": "Label",
+                                  "fill": "$muted",
+                                  "content": "64 px",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 8.5,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "qgYux",
+                              "name": "Size 32",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "hX5ts",
+                                  "name": "Icon 32",
+                                  "clip": true,
+                                  "width": 32,
+                                  "height": 32,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#2B3244",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#17181E",
+                                        "position": 0.55
+                                      },
+                                      {
+                                        "color": "#0E0F13",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 7.1584,
+                                  "stroke": "#FFFFFF26",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "none",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "KcjQY",
+                                      "x": 0.64,
+                                      "y": 8.32,
+                                      "name": "Core Glow",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "radial",
+                                        "enabled": true,
+                                        "opacity": 0.5,
+                                        "rotation": 0,
+                                        "size": {
+                                          "width": 1,
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#2B45C9",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#2B45C900",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 30.72,
+                                      "height": 31.36
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "ht4F3",
+                                      "x": 0,
+                                      "y": 0,
+                                      "name": "Top Light",
+                                      "width": 32,
+                                      "height": 17.28,
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 180,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#FFFFFF0F",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#FFFFFF00",
+                                            "position": 1
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 2.56,
+                                      "id": "pCud0",
+                                      "x": 13.44,
+                                      "y": 5.12,
+                                      "name": "Card Back",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#353D4C",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#242A35",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 11.52,
+                                      "height": 14.72,
+                                      "stroke": "#FFFFFF1A",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 2.56,
+                                      "id": "v4lCE",
+                                      "x": 10.24,
+                                      "y": 8.32,
+                                      "name": "Card Mid",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#3D4859",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#2A3340",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 11.52,
+                                      "height": 14.72,
+                                      "stroke": "#FFFFFF21",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 2.56,
+                                      "id": "ies56",
+                                      "x": 7.04,
+                                      "y": 11.52,
+                                      "name": "Card Front",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#5B79FF",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#3550E8",
+                                            "position": 0.5
+                                          },
+                                          {
+                                            "color": "#2233A0",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 11.52,
+                                      "height": 14.72,
+                                      "stroke": "#FFFFFF33",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "ellipse",
+                                      "id": "U8Yjtx",
+                                      "x": 11.6096,
+                                      "y": 16.051199999999998,
+                                      "name": "Head",
+                                      "fill": "#FFFFFF",
+                                      "width": 2.3808000000000002,
+                                      "height": 2.3808000000000002
+                                    },
+                                    {
+                                      "type": "path",
+                                      "id": "HH3lH",
+                                      "x": 10.3424,
+                                      "y": 18.9312,
+                                      "name": "Shoulders",
+                                      "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                                      "viewBox": [
+                                        0,
+                                        0,
+                                        64,
+                                        41
+                                      ],
+                                      "fill": "#FFFFFF",
+                                      "width": 4.9152,
+                                      "height": 3.1488
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "hTbnQ",
+                                  "name": "Label",
+                                  "fill": "$muted",
+                                  "content": "32 px",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 8.5,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "tLu4K",
+                              "name": "Size 16",
+                              "layout": "vertical",
+                              "gap": 8,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "CUGT7",
+                                  "name": "Icon 16",
+                                  "clip": true,
+                                  "width": 16,
+                                  "height": 16,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#2B3244",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#17181E",
+                                        "position": 0.55
+                                      },
+                                      {
+                                        "color": "#0E0F13",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 3.5792,
+                                  "stroke": "#FFFFFF26",
+                                  "strokeWidth": 1,
+                                  "strokeAlignment": "inner",
+                                  "layout": "none",
+                                  "children": [
+                                    {
+                                      "type": "ellipse",
+                                      "id": "P5n4mM",
+                                      "x": 0.32,
+                                      "y": 4.16,
+                                      "name": "Core Glow",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "radial",
+                                        "enabled": true,
+                                        "opacity": 0.5,
+                                        "rotation": 0,
+                                        "size": {
+                                          "width": 1,
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#2B45C9",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#2B45C900",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 15.36,
+                                      "height": 15.68
+                                    },
+                                    {
+                                      "type": "frame",
+                                      "id": "ckR9N",
+                                      "x": 0,
+                                      "y": 0,
+                                      "name": "Top Light",
+                                      "width": 16,
+                                      "height": 8.64,
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 180,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#FFFFFF0F",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#FFFFFF00",
+                                            "position": 1
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 1.28,
+                                      "id": "W6KNJs",
+                                      "x": 6.72,
+                                      "y": 2.56,
+                                      "name": "Card Back",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#353D4C",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#242A35",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 5.76,
+                                      "height": 7.36,
+                                      "stroke": "#FFFFFF1A",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 1.28,
+                                      "id": "QNLv4",
+                                      "x": 5.12,
+                                      "y": 4.16,
+                                      "name": "Card Mid",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#3D4859",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#2A3340",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 5.76,
+                                      "height": 7.36,
+                                      "stroke": "#FFFFFF21",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "rectangle",
+                                      "cornerRadius": 1.28,
+                                      "id": "F37Wj5",
+                                      "x": 3.52,
+                                      "y": 5.76,
+                                      "name": "Card Front",
+                                      "fill": {
+                                        "type": "gradient",
+                                        "gradientType": "linear",
+                                        "enabled": true,
+                                        "rotation": 135,
+                                        "size": {
+                                          "height": 1
+                                        },
+                                        "colors": [
+                                          {
+                                            "color": "#5B79FF",
+                                            "position": 0
+                                          },
+                                          {
+                                            "color": "#3550E8",
+                                            "position": 0.5
+                                          },
+                                          {
+                                            "color": "#2233A0",
+                                            "position": 1
+                                          }
+                                        ]
+                                      },
+                                      "width": 5.76,
+                                      "height": 7.36,
+                                      "stroke": "#FFFFFF33",
+                                      "strokeWidth": 1,
+                                      "strokeAlignment": "inner"
+                                    },
+                                    {
+                                      "type": "ellipse",
+                                      "id": "viOOr",
+                                      "x": 5.8048,
+                                      "y": 8.025599999999999,
+                                      "name": "Head",
+                                      "fill": "#FFFFFF",
+                                      "width": 1.1904000000000001,
+                                      "height": 1.1904000000000001
+                                    },
+                                    {
+                                      "type": "path",
+                                      "id": "RGFD3",
+                                      "x": 5.1712,
+                                      "y": 9.4656,
+                                      "name": "Shoulders",
+                                      "geometry": "M0 41c0-26 13-41 32-41 19 0 32 15 32 41z",
+                                      "viewBox": [
+                                        0,
+                                        0,
+                                        64,
+                                        41
+                                      ],
+                                      "fill": "#FFFFFF",
+                                      "width": 2.4576,
+                                      "height": 1.5744
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "tg8C3",
+                                  "name": "Label",
+                                  "fill": "$muted",
+                                  "content": "16 px",
+                                  "fontFamily": "$font-mono",
+                                  "fontSize": 8.5,
+                                  "fontWeight": "normal"
+                                }
+                              ]
                             }
                           ]
                         },
                         {
                           "type": "frame",
-                          "id": "Nkxmv",
-                          "name": "Variant 64",
+                          "id": "Ots7y",
+                          "name": "Size Note",
+                          "width": 132,
                           "layout": "vertical",
-                          "gap": 6,
-                          "alignItems": "center",
+                          "gap": 7,
                           "children": [
                             {
                               "type": "frame",
-                              "id": "LoALj",
-                              "name": "App Icon 64",
-                              "width": 64,
-                              "height": 64,
-                              "fill": {
-                                "type": "gradient",
-                                "gradientType": "linear",
-                                "enabled": true,
-                                "rotation": 135,
-                                "size": {
-                                  "height": 1
-                                },
-                                "colors": [
-                                  {
-                                    "color": "#2B45C9",
-                                    "position": 0
-                                  },
-                                  {
-                                    "color": "#1E3199",
-                                    "position": 1
-                                  }
-                                ]
-                              },
-                              "cornerRadius": 14,
-                              "stroke": "#FFFFFF26",
-                              "strokeWidth": 1,
-                              "strokeAlignment": "inner",
-                              "layout": "vertical",
-                              "justifyContent": "center",
+                              "id": "k5AEPy",
+                              "name": "Note Row",
+                              "gap": 5,
                               "alignItems": "center",
                               "children": [
                                 {
+                                  "type": "icon",
+                                  "id": "zhEEt",
+                                  "name": "Check",
+                                  "width": 11,
+                                  "height": 11,
+                                  "icon": "circle-check",
+                                  "library": "lucide",
+                                  "fill": "$accent"
+                                },
+                                {
                                   "type": "text",
-                                  "id": "SLXX6",
-                                  "name": "W",
-                                  "fill": "#FFFFFF",
-                                  "content": "W",
-                                  "fontFamily": "$font-num",
-                                  "fontSize": 38,
-                                  "fontWeight": "700",
-                                  "letterSpacing": -2
+                                  "id": "oHijk",
+                                  "name": "Note Title",
+                                  "fill": "$ink-2",
+                                  "content": "16 px 最小可用",
+                                  "fontFamily": "$font-ui",
+                                  "fontSize": 10,
+                                  "fontWeight": "600"
                                 }
                               ]
                             },
                             {
                               "type": "text",
-                              "id": "Bvzre",
-                              "name": "Label",
+                              "id": "l8GhS",
+                              "name": "Note Body",
                               "fill": "$muted",
-                              "content": "64 px",
-                              "fontFamily": "$font-mono",
-                              "fontSize": 9,
-                              "fontWeight": "normal"
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "kqOJp",
-                          "name": "Variant 32",
-                          "layout": "vertical",
-                          "gap": 6,
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "frame",
-                              "id": "PzBNe",
-                              "name": "App Icon 32",
-                              "width": 32,
-                              "height": 32,
-                              "fill": {
-                                "type": "gradient",
-                                "gradientType": "linear",
-                                "enabled": true,
-                                "rotation": 135,
-                                "size": {
-                                  "height": 1
-                                },
-                                "colors": [
-                                  {
-                                    "color": "#2B45C9",
-                                    "position": 0
-                                  },
-                                  {
-                                    "color": "#1E3199",
-                                    "position": 1
-                                  }
-                                ]
-                              },
-                              "cornerRadius": 7,
-                              "stroke": "#FFFFFF26",
-                              "strokeWidth": 1,
-                              "strokeAlignment": "inner",
-                              "layout": "vertical",
-                              "justifyContent": "center",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "gHWdQ",
-                                  "name": "W",
-                                  "fill": "#FFFFFF",
-                                  "content": "W",
-                                  "fontFamily": "$font-num",
-                                  "fontSize": 19,
-                                  "fontWeight": "700",
-                                  "letterSpacing": -1
-                                }
-                              ]
-                            },
-                            {
-                              "type": "text",
-                              "id": "NF8o5",
-                              "name": "Label",
-                              "fill": "$muted",
-                              "content": "32 px",
-                              "fontFamily": "$font-mono",
+                              "textGrowth": "fixed-width",
+                              "width": "fill_container",
+                              "content": "叠层轮廓与头像在 16 px 下仍清晰。",
+                              "lineHeight": 1.5,
+                              "fontFamily": "$font-ui",
                               "fontSize": 9,
                               "fontWeight": "normal"
                             }
@@ -26720,21 +29166,51 @@
           "children": [
             {
               "type": "frame",
-              "id": "jLBX4",
+              "id": "Ruxzk",
               "name": "Colors",
-              "gap": 18,
+              "gap": 16,
               "alignItems": "center",
               "children": [
                 {
                   "type": "frame",
-                  "id": "a9zLi",
-                  "name": "Color 主色",
+                  "id": "a4OXU6",
+                  "name": "Color 深色底",
                   "gap": 6,
                   "alignItems": "center",
                   "children": [
                     {
                       "type": "frame",
-                      "id": "Ta74H",
+                      "id": "LHvbX",
+                      "name": "Swatch",
+                      "width": 14,
+                      "height": 14,
+                      "fill": "#14151A",
+                      "cornerRadius": 4,
+                      "stroke": "#00000014",
+                      "strokeWidth": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "CnoTD",
+                      "name": "Label",
+                      "fill": "$muted",
+                      "content": "深色底",
+                      "fontFamily": "$font-ui",
+                      "fontSize": 10,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "n2X6R",
+                  "name": "Color 钴蓝",
+                  "gap": 6,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "q6dOL",
                       "name": "Swatch",
                       "width": 14,
                       "height": 14,
@@ -26745,10 +29221,10 @@
                     },
                     {
                       "type": "text",
-                      "id": "JY2nN",
+                      "id": "h2qG9",
                       "name": "Label",
                       "fill": "$muted",
-                      "content": "主色",
+                      "content": "钴蓝",
                       "fontFamily": "$font-ui",
                       "fontSize": 10,
                       "fontWeight": "500"
@@ -26757,28 +29233,28 @@
                 },
                 {
                   "type": "frame",
-                  "id": "cV8KC",
-                  "name": "Color 深色",
+                  "id": "wwo4Z",
+                  "name": "Color 卫星点",
                   "gap": 6,
                   "alignItems": "center",
                   "children": [
                     {
                       "type": "frame",
-                      "id": "IwMSV",
+                      "id": "e1QnYs",
                       "name": "Swatch",
                       "width": 14,
                       "height": 14,
-                      "fill": "#15161A",
+                      "fill": "#3A4354",
                       "cornerRadius": 4,
                       "stroke": "#00000014",
                       "strokeWidth": 1
                     },
                     {
                       "type": "text",
-                      "id": "Ca0Og",
+                      "id": "w4jb3v",
                       "name": "Label",
                       "fill": "$muted",
-                      "content": "深色",
+                      "content": "叠层灰",
                       "fontFamily": "$font-ui",
                       "fontSize": 10,
                       "fontWeight": "500"
@@ -26787,14 +29263,14 @@
                 },
                 {
                   "type": "frame",
-                  "id": "r9Guo",
-                  "name": "Color 背景",
+                  "id": "vQ3DB",
+                  "name": "Color 浅色底",
                   "gap": 6,
                   "alignItems": "center",
                   "children": [
                     {
                       "type": "frame",
-                      "id": "lTPH6",
+                      "id": "CuZjG",
                       "name": "Swatch",
                       "width": 14,
                       "height": 14,
@@ -26805,10 +29281,10 @@
                     },
                     {
                       "type": "text",
-                      "id": "arEsn",
+                      "id": "W9CHNv",
                       "name": "Label",
                       "fill": "$muted",
-                      "content": "背景",
+                      "content": "浅色底",
                       "fontFamily": "$font-ui",
                       "fontSize": 10,
                       "fontWeight": "500"
@@ -26839,7 +29315,7 @@
                   "id": "q1Lvt",
                   "name": "Text",
                   "fill": "$muted",
-                  "content": "W 字标 · 22% 圆角 · 支持深色桌面",
+                  "content": "账号卡叠层 = 多平台 / 多账号 · 钴蓝 = 当前账号",
                   "fontFamily": "$font-ui",
                   "fontSize": 9.5,
                   "fontWeight": "normal"

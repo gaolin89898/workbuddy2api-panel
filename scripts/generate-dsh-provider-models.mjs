@@ -45,8 +45,11 @@ export function catalogEntry(model) {
   if (model.context_length) entry.contextWindow = model.context_length;
   if (model.max_output_tokens) entry.maxTokens = model.max_output_tokens;
   entry.input = model.supports_images ? ['text', 'image'] : ['text'];
+  // DSH 的 reasoningEfforts 只接受 off/minimal/low/medium/high/xhigh/max；
+  // 网关目录里的 none 映射成 off，其余不认识的档位直接剔除，避免整段配置校验失败。
+  const SUPPORTED_EFFORTS = new Set(['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']);
   const efforts = model.supports_reasoning && Array.isArray(model.supported_efforts) && model.supported_efforts.length
-    ? model.supported_efforts
+    ? [...new Set(model.supported_efforts.map(level => String(level).toLowerCase() === 'none' ? 'off' : String(level).toLowerCase()).filter(level => SUPPORTED_EFFORTS.has(level)))]
     : null;
   entry.reasoningEfforts = efforts ? Object.fromEntries(efforts.map(level => [level, level])) : false;
   return entry;

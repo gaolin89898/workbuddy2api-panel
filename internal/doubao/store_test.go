@@ -38,7 +38,7 @@ func TestAccountLifecycleIdentityAndCredentialIsolation(t *testing.T) {
 	}
 	ctx := context.Background()
 	a, err := s.Add(ctx, Account{Cookie: "first-private-session"}, "")
-	if err != nil || a.AccountUID != "1234567890123456789" || a.CheckinSupported || !a.BalanceKnown || a.Credits != 200 || a.Total != 200 || len(a.Quotas) != 2 {
+	if err != nil || a.AccountUID != "1234567890123456789" || !a.CheckinSupported || !a.BalanceKnown || a.Credits != 200 || a.Total != 200 || len(a.Quotas) != 2 {
 		t.Fatalf("bad identity or capabilities: %+v %v", a, err)
 	}
 	if _, err = s.Action(ctx, a.UID, "disable"); err != nil {

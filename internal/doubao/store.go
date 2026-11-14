@@ -6,61 +6,76 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/linguo2625469/workbuddy2api-panel/internal/gateway"
 )
 
 type Account struct {
-	ID               string    `json:"id"`
-	AccountUID       string    `json:"account_uid"`
-	Nickname         string    `json:"nickname"`
-	Cookie           string    `json:"cookie"`
-	Disabled         bool      `json:"disabled"`
-	VerifiedAt       time.Time `json:"verified_at"`
-	Credits          float64   `json:"credits"`
-	Total            float64   `json:"credits_total"`
-	Quotas           []Quota   `json:"quotas"`
-	Plan             string    `json:"plan"`
-	BalanceKnown     bool      `json:"balance_known"`
-	BalanceUpdatedAt time.Time `json:"balance_updated_at"`
-	LastError        string    `json:"last_error,omitempty"`
+	ID                string    `json:"id"`
+	AccountUID        string    `json:"account_uid"`
+	Nickname          string    `json:"nickname"`
+	Cookie            string    `json:"cookie"`
+	Disabled          bool      `json:"disabled"`
+	VerifiedAt        time.Time `json:"verified_at"`
+	Credits           float64   `json:"credits"`
+	Total             float64   `json:"credits_total"`
+	Quotas            []Quota   `json:"quotas"`
+	Plan              string    `json:"plan"`
+	BalanceKnown      bool      `json:"balance_known"`
+	BalanceUpdatedAt  time.Time `json:"balance_updated_at"`
+	LastCheckinDate   string    `json:"last_checkin_date,omitempty"`
+	CheckinContinuous int       `json:"checkin_continuous"`
+	CheckinTotalDays  int       `json:"checkin_total_days"`
+	CheckinPoints     float64   `json:"checkin_points,omitempty"`
+	LastError         string    `json:"last_error,omitempty"`
 }
 
 // Status deliberately excludes all credentials.
 type Status struct {
-	UID              string    `json:"uid"`
-	AccountUID       string    `json:"account_uid"`
-	Nickname         string    `json:"nickname"`
-	Provider         string    `json:"provider"`
-	Realm            string    `json:"realm"`
-	Disabled         bool      `json:"disabled"`
-	CheckinSupported bool      `json:"checkin_supported"`
-	BalanceKnown     bool      `json:"balance_known"`
-	Credits          float64   `json:"credits"`
-	Total            float64   `json:"credits_total"`
-	Quotas           []Quota   `json:"quotas"`
-	Plan             string    `json:"plan"`
-	BalanceUpdatedAt time.Time `json:"balance_updated_at"`
-	VerifiedAt       time.Time `json:"verified_at"`
-	LastError        string    `json:"last_error,omitempty"`
+	UID               string    `json:"uid"`
+	AccountUID        string    `json:"account_uid"`
+	Nickname          string    `json:"nickname"`
+	Provider          string    `json:"provider"`
+	Realm             string    `json:"realm"`
+	Disabled          bool      `json:"disabled"`
+	CheckinSupported  bool      `json:"checkin_supported"`
+	CheckinDone       bool      `json:"checkin_done"`
+	LastCheckinDate   string    `json:"last_checkin_date,omitempty"`
+	CheckinContinuous int       `json:"checkin_continuous"`
+	CheckinTotalDays  int       `json:"checkin_total_days"`
+	CheckinPoints     float64   `json:"checkin_points,omitempty"`
+	BalanceKnown      bool      `json:"balance_known"`
+	Credits           float64   `json:"credits"`
+	Total             float64   `json:"credits_total"`
+	Quotas            []Quota   `json:"quotas"`
+	Plan              string    `json:"plan"`
+	BalanceUpdatedAt  time.Time `json:"balance_updated_at"`
+	VerifiedAt        time.Time `json:"verified_at"`
+	LastError         string    `json:"last_error,omitempty"`
 }
 
 func status(a Account) Status {
-	return Status{UID: a.ID, AccountUID: a.AccountUID, Nickname: a.Nickname, Provider: "doubao", Realm: "cn", Disabled: a.Disabled, VerifiedAt: a.VerifiedAt, Credits: a.Credits, Total: a.Total, Quotas: append([]Quota{}, a.Quotas...), Plan: a.Plan, BalanceKnown: a.BalanceKnown, BalanceUpdatedAt: a.BalanceUpdatedAt, LastError: a.LastError}
+	return Status{UID: a.ID, AccountUID: a.AccountUID, Nickname: a.Nickname, Provider: "doubao", Realm: "cn", Disabled: a.Disabled, VerifiedAt: a.VerifiedAt, CheckinSupported: true, CheckinDone: a.LastCheckinDate != "" && a.LastCheckinDate == CheckinDay(time.Now()), LastCheckinDate: a.LastCheckinDate, CheckinContinuous: a.CheckinContinuous, CheckinTotalDays: a.CheckinTotalDays, CheckinPoints: a.CheckinPoints, Credits: a.Credits, Total: a.Total, Quotas: append([]Quota{}, a.Quotas...), Plan: a.Plan, BalanceKnown: a.BalanceKnown, BalanceUpdatedAt: a.BalanceUpdatedAt, LastError: a.LastError}
 }
 
 type Store struct {
-	mu       sync.RWMutex
-	op       sync.Mutex
-	path     string
-	accounts []Account
-	client   *Client
+	mu             sync.RWMutex
+	op             sync.Mutex
+	path           string
+	accounts       []Account
+	client         *Client
+	refreshEnabled atomic.Bool
 }
+
+// SetRefreshEnabled 控制签到成功后是否顺带刷新额度（调度批量签到时开启）。
+func (s *Store) SetRefreshEnabled(enabled bool) { s.refreshEnabled.Store(enabled) }
 
 func Open(path string, client *Client) (*Store, error) {
 	if client == nil {
@@ -236,6 +251,52 @@ func (s *Store) Action(ctx context.Context, id, action string) (Status, error) {
 			} else {
 				inspectErr = s.refreshBalance(ctx, a)
 			}
+		case "checkin":
+			if a.Disabled {
+				return status(*a), fmt.Errorf("该豆包账号已停用")
+			}
+			// 服务端按天幂等，但当天已签时直接跳过网络请求。
+			if !status(*a).CheckinDone {
+				result2, checkinErr := s.client.Checkin(ctx, a)
+				if checkinErr != nil {
+					// 平台可能把该账号的签到路由到桌面端（网页领取被拒）。若任务组
+					// 回读显示当天已签（桌面端/手机端已完成），按幂等回读入账。
+					if group, gerr := s.client.CheckinGroupStatus(ctx, a); gerr == nil && group.CheckedInToday && group.LastCheckinDate != "" {
+						a.LastCheckinDate = group.LastCheckinDate
+						a.CheckinContinuous, a.CheckinTotalDays = group.ContinuousDays, group.TotalDays
+						a.CheckinPoints = group.Points
+						a.LastError = ""
+						if s.refreshEnabled.Load() {
+							_ = s.refreshBalance(ctx, a)
+						}
+					} else {
+						// 客户端内点「立即签到」同样失败（用户实测），属平台侧账号活动异常；
+						// 给出准确提示并保持每日自动重试。
+						if strings.Contains(checkinErr.Error(), "710010702") {
+							checkinErr = fmt.Errorf("平台签到服务对该账号返回系统错误（710010702）：在豆包客户端内点「立即签到」也一样失败，属平台侧账号活动异常；面板每天自动重试，平台恢复后会自动签到并计入额度")
+						}
+						a.LastError = checkinErr.Error()
+						if commitErr := s.commit(accounts); commitErr != nil {
+							return Status{}, commitErr
+						}
+						return status(*a), checkinErr
+					}
+				} else {
+					a.LastCheckinDate = result2.CheckinDate
+					a.CheckinContinuous, a.CheckinTotalDays = result2.ContinuousDays, result2.TotalDays
+					// 累计获得点数与周期天数以任务组回读为准，失败不影响签到结果。
+					if group, err := s.client.CheckinGroupStatus(ctx, a); err == nil {
+						a.CheckinPoints = group.Points
+						if group.TotalDays > a.CheckinTotalDays {
+							a.CheckinTotalDays = group.TotalDays
+						}
+					}
+					a.LastError = ""
+					if s.refreshEnabled.Load() {
+						_ = s.refreshBalance(ctx, a)
+					}
+				}
+			}
 		default:
 			return Status{}, fmt.Errorf("不支持的豆包账号操作")
 		}
@@ -251,6 +312,26 @@ func (s *Store) Action(ctx context.Context, id, action string) (Status, error) {
 		return result, inspectErr
 	}
 	return Status{}, os.ErrNotExist
+}
+
+// RunAll 对全部启用账号执行签到或余额刷新，返回每个失败账号的错误文本。
+func (s *Store) RunAll(ctx context.Context, action string) []string {
+	failures := []string{}
+	for _, a := range s.List() {
+		if ctx.Err() != nil {
+			break
+		}
+		if a.Disabled || action == "checkin" && a.CheckinDone {
+			continue
+		}
+		if _, err := s.Action(ctx, a.UID, action); err != nil {
+			failures = append(failures, a.UID+": "+err.Error())
+			log.Printf("doubao: %s 失败 %s", action, err)
+		} else {
+			log.Printf("doubao: %s 完成", action)
+		}
+	}
+	return failures
 }
 
 func (s *Store) GatewayAccounts() []gateway.Account {

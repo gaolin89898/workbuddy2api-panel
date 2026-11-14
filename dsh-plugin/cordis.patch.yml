@@ -20,68 +20,6 @@
             defaultInput:
               - "text"
             models:
-              - id: "cn:hy4free"
-                name: "Hy4 · x0.29"
-                contextWindow: 1000000
-                maxTokens: 64000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  high: "high"
-              - id: "cn:hy3-x"
-                name: "Hy3 · x0.05"
-                contextWindow: 192000
-                maxTokens: 64000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  high: "high"
-              - id: "cn:step-5-preview"
-                name: "Step-5-Preview · x0.33"
-                contextWindow: 1000000
-                maxTokens: 64000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-              - id: "cn:deepseek-v4-pro"
-                name: "Deepseek-V4-Pro · x0.51"
-                contextWindow: 1000000
-                maxTokens: 393216
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  high: "high"
-                  xhigh: "xhigh"
-              - id: "cn:glm-5.3-flash"
-                name: "GLM-5.3-Flash · x0.08"
-                contextWindow: 1000000
-                maxTokens: 131072
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  high: "high"
-                  max: "max"
-              - id: "cn:glm-5.2"
-                name: "GLM-5.2 · x0.79"
-                contextWindow: 1000000
-                maxTokens: 131072
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  high: "high"
-                  xhigh: "xhigh"
               - id: "cn:kimi-k2.8-preview"
                 name: "Kimi-K2.8-Preview · x0.77"
                 contextWindow: 1000000
@@ -101,8 +39,49 @@
                   - "text"
                   - "image"
                 reasoningEfforts: false
-              - id: "cn:hy3"
-                name: "Hy3 · x0.00"
+              - id: "cn:deepseek-v4-flash"
+                name: "Deepseek-V4-Flash · x0.17"
+                contextWindow: 1000000
+                maxTokens: 50000
+                input:
+                  - "text"
+                  - "image"
+                reasoningEfforts:
+                  low: "low"
+                  high: "high"
+                  xhigh: "xhigh"
+              - id: "cn:hy4std"
+                name: "Hy4 · x0.29"
+                contextWindow: 960000
+                maxTokens: 64000
+                input:
+                  - "text"
+                  - "image"
+                reasoningEfforts:
+                  high: "high"
+              - id: "cn:step-5-preview"
+                name: "Step-5-Preview · x0.33"
+                contextWindow: 1000000
+                maxTokens: 64000
+                input:
+                  - "text"
+                  - "image"
+                reasoningEfforts:
+                  low: "low"
+                  medium: "medium"
+                  high: "high"
+              - id: "cn:glm-5.2"
+                name: "GLM-5.2 · x0.79"
+                contextWindow: 1000000
+                maxTokens: 131072
+                input:
+                  - "text"
+                  - "image"
+                reasoningEfforts:
+                  high: "high"
+                  xhigh: "xhigh"
+              - id: "cn:hy3-x"
+                name: "Hy3 · x0.05"
                 contextWindow: 192000
                 maxTokens: 64000
                 input:
@@ -111,28 +90,8 @@
                 reasoningEfforts:
                   low: "low"
                   high: "high"
-              - id: "cn:hy4std"
-                name: "Hy4 · x0.29"
-                contextWindow: 1000000
-                maxTokens: 64000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  high: "high"
-              - id: "cn:deepseek-v4.1-flash"
-                name: "Deepseek-V4.1-Flash · x0.11"
-                contextWindow: 1000000
-                maxTokens: 393216
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  high: "high"
-                  max: "max"
-              - id: "cn:glm-5.3"
-                name: "GLM-5.3 · x0.69"
+              - id: "cn:glm-5.3-flash"
+                name: "GLM-5.3-Flash · x0.08"
                 contextWindow: 1000000
                 maxTokens: 131072
                 input:
@@ -162,30 +121,6 @@
                   - "image"
                 reasoningEfforts:
                   medium: "medium"
-              - id: "cn:deepseek-v4-flash"
-                name: "Deepseek-V4-Flash · x0.17"
-                contextWindow: 1000000
-                maxTokens: 50000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  high: "high"
-                  xhigh: "xhigh"
-              - id: "cn:space-bunny"
-                name: "Space-Bunny · x0.08"
-                contextWindow: 1000000
-                maxTokens: 128000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-                  xhigh: "xhigh"
-                  max: "max"
               - id: "cn:minimax-m3.1-flash"
                 name: "MiniMax-M3.1-Flash · x0.08"
                 contextWindow: 1000000
@@ -204,57 +139,16 @@
                 input:
                   - "text"
                 reasoningEfforts: false
-              - id: "global:gpt-6-sol"
-                name: "GPT-6-Sol · x1.33"
-                contextWindow: 1000000
-                maxTokens: 128000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-                  xhigh: "xhigh"
-              - id: "global:gpt-6-luna"
-                name: "GPT-6-Luna · x0.07"
-                contextWindow: 1000000
-                maxTokens: 128000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-                  xhigh: "xhigh"
-              - id: "global:glm-5.3"
-                name: "GLM-5.3 · x0.69"
-                contextWindow: 1000000
+              - id: "cn:hy4free"
+                name: "Hy4 · x0.29"
+                contextWindow: 960000
                 maxTokens: 64000
                 input:
                   - "text"
                   - "image"
                 reasoningEfforts:
-                  low: "low"
                   high: "high"
-                  max: "max"
-              - id: "global:kimi-k3"
-                name: "Kimi-K3 · x1.62"
-                contextWindow: 1000000
-                maxTokens: 32000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  medium: "medium"
-              - id: "global:hy4-preview-f"
-                contextWindow: 1000000
-                input:
-                  - "text"
-                reasoningEfforts:
-                  high: "high"
-              - id: "global:hy3"
+              - id: "cn:hy3"
                 name: "Hy3 · x0.00"
                 contextWindow: 192000
                 maxTokens: 64000
@@ -264,8 +158,8 @@
                 reasoningEfforts:
                   low: "low"
                   high: "high"
-              - id: "global:gpt-6-astra"
-                name: "GPT-6-Astra · x6.67"
+              - id: "cn:space-bunny"
+                name: "Space-Bunny · x0.08"
                 contextWindow: 1000000
                 maxTokens: 128000
                 input:
@@ -277,109 +171,8 @@
                   high: "high"
                   xhigh: "xhigh"
                   max: "max"
-              - id: "global:gpt-5.6-sol"
-                name: "GPT-5.6-Sol · x3.47"
-                contextWindow: 1000000
-                maxTokens: 128000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-                  xhigh: "xhigh"
-                  max: "max"
-              - id: "global:gpt-5.6-terra"
-                name: "GPT-5.6-Terra · x1.39"
-                contextWindow: 1000000
-                maxTokens: 128000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-                  xhigh: "xhigh"
-                  max: "max"
-              - id: "global:gpt-5.6-luna"
-                name: "GPT-5.6-Luna · x0.14"
-                contextWindow: 1000000
-                maxTokens: 128000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-                  xhigh: "xhigh"
-                  max: "max"
-              - id: "global:grok-4.7"
-                name: "Grok-4.7 · x1.90"
-                contextWindow: 500000
-                maxTokens: 128000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-                  xhigh: "xhigh"
-              - id: "global:gemini-3.8-flash"
-                name: "Gemini-3.8-Flash · x0.95"
-                contextWindow: 1000000
-                maxTokens: 65536
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-              - id: "global:kimi-k3.1-pro"
-                name: "Kimi-K3.1-Pro · x0.97"
-                contextWindow: 1000000
-                maxTokens: 32000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  high: "high"
-                  max: "max"
-              - id: "global:max-model"
-                name: "Max · x1.33"
-                contextWindow: 272000
-                maxTokens: 72000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts: false
-              - id: "global:hy4std"
-                name: "Hy4 · x0.29"
-                contextWindow: 960000
-                maxTokens: 64000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  high: "high"
-              - id: "global:deepseek-v4.1-flash-sg"
-                name: "Deepseek-V4.1-Flash · x0.11"
-                contextWindow: 1000000
-                maxTokens: 128000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  high: "high"
-                  max: "max"
-              - id: "global:glm-5.3-flash"
-                name: "GLM-5.3-Flash · x0.08"
+              - id: "cn:glm-5.3"
+                name: "GLM-5.3 · x0.69"
                 contextWindow: 1000000
                 maxTokens: 131072
                 input:
@@ -389,10 +182,10 @@
                   low: "low"
                   high: "high"
                   max: "max"
-              - id: "global:kimi-k3.1-pro-highspeed"
-                name: "Kimi-K3.1-Pro-Highspeed · x1.56"
+              - id: "cn:deepseek-v4.1-flash"
+                name: "Deepseek-V4.1-Flash · x0.11"
                 contextWindow: 1000000
-                maxTokens: 32000
+                maxTokens: 393216
                 input:
                   - "text"
                   - "image"
@@ -400,147 +193,113 @@
                   low: "low"
                   high: "high"
                   max: "max"
-              - id: "global:hy4free"
-                name: "Hy4 · x0.00"
-                contextWindow: 960000
-                maxTokens: 64000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  high: "high"
-              - id: "global:gpt-6.1-sol"
-                name: "GPT-6.1-Sol · x1.33"
+              - id: "cn:deepseek-v4-pro"
+                name: "Deepseek-V4-Pro · x0.51"
                 contextWindow: 1000000
-                maxTokens: 128000
+                maxTokens: 393216
                 input:
                   - "text"
                   - "image"
                 reasoningEfforts:
                   low: "low"
-                  medium: "medium"
                   high: "high"
                   xhigh: "xhigh"
-              - id: "global:minimax-m3.1-flash"
-                name: "MiniMax-M3.1-Flash · x0.08"
-                contextWindow: 1000000
-                maxTokens: 128000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-                  xhigh: "xhigh"
-                  max: "max"
-              - id: "global:balanced-model"
-                name: "Balanced · x0.59"
-                contextWindow: 256000
-                maxTokens: 32000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  medium: "medium"
-              - id: "global:enhance-1.0"
-                name: "Enhance-1.0"
-                contextWindow: 1000000
-                maxTokens: 32000
+              - id: "doubao/doubao"
+                name: "豆包"
                 input:
                   - "text"
                 reasoningEfforts: false
-              - id: "global:fast-model"
-                name: "Fast · x0.34"
-                contextWindow: 200000
-                maxTokens: 32000
+              - id: "loomy/DeepSeek-V4.1-Flash"
+                name: "DeepSeek V4.1 Flash(x2.0)"
+                contextWindow: 1048576
+                maxTokens: 384000
                 input:
                   - "text"
                   - "image"
                 reasoningEfforts:
+                  off: "off"
+                  low: "low"
                   medium: "medium"
-              - id: "global:o4-mini"
-                name: "GPT-4o-Mini"
-                contextWindow: 104000
-                maxTokens: 24000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts: false
-              - id: "global:primary-model"
-                name: "Primary · x3.31"
-                contextWindow: 272000
-                maxTokens: 72000
+                  high: "high"
+                  xhigh: "xhigh"
+              - id: "loomy/GLM-5.3-Flash"
+                name: "GLM 5.3 Flash(x0.8)"
+                contextWindow: 1048576
+                maxTokens: 131072
                 input:
                   - "text"
                   - "image"
                 reasoningEfforts:
+                  off: "off"
+                  low: "low"
+                  medium: "medium"
                   high: "high"
-              - id: "global:deepseek-v4.1-flash"
-                name: "Deepseek-V4.1-Flash · x0.00"
-                contextWindow: 1000000
+                  xhigh: "xhigh"
+              - id: "loomy/deepseek-v4-flash-1017"
+                name: "DeepSeek V4.1 Flash 1017(x2.0)"
+                contextWindow: 1048576
+                maxTokens: 384000
+                input:
+                  - "text"
+                  - "image"
+                reasoningEfforts:
+                  off: "off"
+                  low: "low"
+                  medium: "medium"
+                  high: "high"
+                  xhigh: "xhigh"
+              - id: "loomy/mimo-v2.5"
+                name: "MiMo V2.5（x3.3）"
+                contextWindow: 1024000
                 maxTokens: 128000
                 input:
                   - "text"
                   - "image"
                 reasoningEfforts:
-                  low: "low"
-                  high: "high"
-                  max: "max"
-              - id: "global:glm-5.2"
-                name: "GLM-5.2 · x0.79"
-                contextWindow: 1000000
-                maxTokens: 48000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
-                  high: "high"
-                  xhigh: "xhigh"
-              - id: "global:gpt-5.4"
-                name: "GPT-5.4 · x1.65"
-                contextWindow: 272000
-                maxTokens: 72000
-                input:
-                  - "text"
-                  - "image"
-                reasoningEfforts:
+                  off: "off"
                   low: "low"
                   medium: "medium"
                   high: "high"
                   xhigh: "xhigh"
-              - id: "global:gpt-5.5"
-                name: "GPT-5.5 · x3.31"
+              - id: "loomy/qwen3.8-flash"
+                name: "qwen 3.8 flash（x0.8）"
                 contextWindow: 1000000
+                maxTokens: 131072
+                input:
+                  - "text"
+                  - "image"
+                reasoningEfforts:
+                  off: "off"
+                  low: "low"
+                  medium: "medium"
+                  high: "high"
+                  xhigh: "xhigh"
+              - id: "loomy/spark-x2.6"
+                name: "Spark-X2.6 正式版(限时免费)(x0.0)"
+                contextWindow: 1048576
+                maxTokens: 131072
+                input:
+                  - "text"
+                reasoningEfforts:
+                  off: "off"
+                  low: "low"
+                  medium: "medium"
+                  high: "high"
+                  xhigh: "xhigh"
+              - id: "minimax/MiniMax-M3"
+                contextWindow: 512000
                 maxTokens: 128000
                 input:
                   - "text"
                   - "image"
-                reasoningEfforts:
-                  low: "low"
-                  medium: "medium"
-                  high: "high"
-                  xhigh: "xhigh"
-              - id: "global:hy4-preview"
-                name: "Hy4 Preview · x0.29"
-                contextWindow: 1000000
-                maxTokens: 64000
+                reasoningEfforts: false
+              - id: "minimax/MiniMax-M3.1-Flash"
+                name: "M3.1-Flash"
+                contextWindow: 512000
+                maxTokens: 128000
                 input:
                   - "text"
                   - "image"
-                reasoningEfforts:
-                  high: "high"
-              - id: "global:hy-image-3.5"
-                name: "HY-Image-3.5"
-                contextWindow: 1000000
-                input:
-                  - "text"
-                reasoningEfforts: false
-              - id: "global:kling-video-v3"
-                name: "Kling-Video-V3"
-                contextWindow: 1000000
-                input:
-                  - "text"
                 reasoningEfforts: false
               - id: "qoder/dfmodel"
                 name: "DeepSeek-Flash"

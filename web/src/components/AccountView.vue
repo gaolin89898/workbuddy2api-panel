@@ -10,7 +10,7 @@ const props = defineProps({ model: Object });
 const sessionOnly = computed(() => props.model.provider === 'antigravity');
 const doubao = computed(() => props.model.provider === 'doubao');
 const refreshLabel = computed(() => sessionOnly.value ? '刷新授权' : doubao.value ? '刷新额度' : '刷新积分');
-const noCheckin = computed(() => ['antigravity', 'doubao', 'loomy'].includes(props.model.provider));
+const noCheckin = computed(() => ['antigravity', 'loomy'].includes(props.model.provider));
 const localLoomy = computed(() => props.model.provider === 'loomy');
 const readingLoomy = computed(() => localLoomy.value && props.model.busy.has('loomy-import'));
 const emptyDescription = computed(() => props.model.accounts.length ? '没有匹配的账号' : localLoomy.value ? readingLoomy.value ? '正在读取本机登录配置…' : '请先在本机 Loomy 桌面端登录，再点击「重新读取」' : '还没有账号');

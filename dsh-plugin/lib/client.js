@@ -60,7 +60,7 @@ window.__ModuleLoader__.load({
                 const url = URL.createObjectURL(new Blob([text], { type })); blobs.push(url); return url;
               };
               const js = asset(script, 'text/javascript'), css = asset(style, 'text/css');
-              setFrameDocument(`<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src blob:; style-src blob: 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self' data:; base-uri 'none'; form-action 'none'"><title>AI 工具箱</title><link rel="stylesheet" href="${css}"></head><body><div id="app"></div><script type="module" src="${js}"></script></body></html>`);
+              setFrameDocument(`<!doctype html><html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src blob:; style-src blob: 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src 'self' data:; base-uri 'none'; form-action 'none'"><title>ai-toolbox-gateway</title><link rel="stylesheet" href="${css}"></head><body><div id="app"></div><script type="module" src="${js}"></script></body></html>`);
             })().catch(cause => { if (active && cause.name !== 'AbortError') setError(cause.message); });
             return () => { active = false; ready.current = false; abort.abort(); for (const url of blobs) URL.revokeObjectURL(url); };
           }, [remote, attempt]);
@@ -80,7 +80,7 @@ window.__ModuleLoader__.load({
           if (remote && !frameDocument) return h('div', { role: error ? 'alert' : 'status', style: { padding: 24, color: 'var(--dsw-alias-label-primary)' } },
             error || '正在连接远程 AI 工具箱…', error && h('button', { onClick: () => setAttempt(value => value + 1), style: { marginLeft: 12 } }, '重新连接'));
           return h('iframe', {
-            ref: frame, onLoad: loaded, ...(remote ? { srcDoc: frameDocument } : { src: source.current }), title: 'AI 工具箱', 'data-ai-toolbox': '1',
+            ref: frame, onLoad: loaded, ...(remote ? { srcDoc: frameDocument } : { src: source.current }), title: 'ai-toolbox-gateway', 'data-ai-toolbox': '1',
             style: { display: 'block', width: '100%', height: '100%', flex: 1, border: 0, minWidth: 0, minHeight: 0 },
           });
         }

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "ai-toolbox-gateway",
+    "description": "后端 http://127.0.0.1:7863/v1 · 管理密钥在「签到设置」页查看复制，并存于 DSH 凭证库 WB2API_GATEWAY_API_KEY"
+  }
+}
